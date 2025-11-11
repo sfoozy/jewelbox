@@ -1,14 +1,17 @@
+export const DEBUG = false;
+export const DEBUG_COLORS = false;
 export const UNIT = 30;
 export const ROWS = 15;
 export const COLS = 7;
+export const STARTING_LIVES = 3;
 export const PIECE_SIZE = 3;
-export const MATCH_SIZE = 3
+export const MATCH_SIZE = 3;
 export const MATCH_DELAY = 500;
 
 export enum EGameState {
   NONE,
   STARTING,
- STARTED,
+  STARTED,
   PAUSED,
   ENDED
 }
@@ -28,8 +31,8 @@ export enum ECellType {
   COMMON_1, // cyan
   COMMON_2, // blue
   COMMON_3, // fuchsia
-  RARE_1, // light-pink
-  RARE_2, // light-emerald
-  ULTRA_RARE_1, // light-stone (off-white)
+  RARE_1, // teal-violet
+  RARE_2, // pink-orange
+  ULTRA_RARE_1, // red-emerald
   JEWELBOX // WILD
 }

@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import "./Board.css";
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
 import chimeSound from "../../resources/sounds/chime.mp3";
-import { COLS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, PIECE_SIZE, ROWS, UNIT } from "../../types/constants";
+import { COLS, DEBUG_COLORS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, PIECE_SIZE, ROWS, STARTING_LIVES, UNIT } from "../../types/constants";
 import type { CellData } from "../../types/cellData";
 import Cell from "../cell/Cell";
-import { generateEmptyBoard, generateNewPiece, getCellScore, getLevelFromScore, START_COL, START_ROW } from "./boardHelpers";
+import { generateEmptyBoard, generateNewPiece, getCellScore, getLevel, START_COL, START_ROW } from "./boardHelpers";
 
 function Board() {
+
   //
   // states
   //
@@ -21,21 +22,20 @@ function Board() {
   const [pieceRow, setPieceRow] = useState(START_ROW);
   const [piece, setPiece] = useState<CellData[]>([]);
   const [nextPiece, setNextPiece] = useState<CellData[]>([]);
-  const [makeNewPiece, setMakeNewPiece] = useState(false);
+  const [loadNextPiece, setLoadNextPiece] = useState(false);
   const [movePieceDown, setMovePieceDown] = useState(false);
   const [grid, setGrid] = useState<CellData[][]>([]);
   const [evaluateGrid, setEvaluateGrid] = useState(false);
   const [lives, setLives] = useState(0);
   const [score, setScore] = useState(0);
   const [matchScoreChain, setMatchScoreChain] = useState<number[]>([]);
-  const [level, setLevel] = useState(1);
-  const [speed, setSpeed] = useState(800); // ms
 
-  const movePieceTimerRef = useRef(0);
-  const loadNextPieceTimerRef = useRef(0);
-  const evaluateGridTimerRef = useRef(0);
+  const queueLoadNextPieceTimerRef = useRef(0);
+  const queueMovePieceDownTimerRef = useRef(0);
+  const queueEvaluateGridTimerRef = useRef(0);
   const boardRef = useRef<HTMLDivElement>(null);
-  
+
+
   //
   // effects
   //
@@ -45,10 +45,8 @@ function Board() {
     setPiece([]);
     setNextPiece([]);
 
-    setLives(3);
+    setLives(STARTING_LIVES);
     setScore(0);
-    setLevel(0);
-    setSpeed(800);
   }
 
   function initializeNewBoard() {
@@ -70,10 +68,12 @@ function Board() {
       setGameState(EGameState.STARTED);
     }
     else if (gameState === EGameState.STARTED) {
-      startTimers();
-
-      // continue by re-evaluating the board (will trigger loadNextPiece())
-      if (piece.length === 0) {
+      // continue by movie piece if we have one
+      if (piece.length > 0) {
+        setMovePieceDown(true);
+      }
+      // else, continue by re-evaluating the board (will trigger queueLoadNextPiece())
+      else {
         setEvaluateGrid(true);
       }
 
@@ -108,30 +108,70 @@ function Board() {
     if (gameState === EGameState.STARTED) {
       if (lives === 0) {
         setGameState(EGameState.ENDED);
-      } else {
+      } else if (lives < STARTING_LIVES) {
         initializeNewBoard();
-        loadNextPiece(speed);
+        queueLoadNextPiece(getLevel(score).speed);
       }
     }
   }, [lives]);
 
-  function startTimers() {
-    stopTimers();
+  function stopTimers() {
+    clearInterval(queueMovePieceDownTimerRef.current);
+    queueMovePieceDownTimerRef.current = 0;
 
-    movePieceTimerRef.current = setInterval(() => {
-      setMovePieceDown(true);
-    }, speed);
+    clearTimeout(queueLoadNextPieceTimerRef.current);
+    queueLoadNextPieceTimerRef.current = 0;
+
+    clearTimeout(queueEvaluateGridTimerRef.current);
+    queueEvaluateGridTimerRef.current = 0;
   }
 
-  function stopTimers() {
-    clearInterval(movePieceTimerRef.current);
-    movePieceTimerRef.current = 0;
+  function queueLoadNextPiece(delay: number) {
+    // set next piece position immediately to allow movement before making new piece
+    setPieceCol(START_COL);
+    setPieceRow(START_ROW);
+    queueLoadNextPieceTimerRef.current = setTimeout(() => setLoadNextPiece(true), delay);
+  };
 
-    clearTimeout(loadNextPieceTimerRef.current);
-    loadNextPieceTimerRef.current = 0;
+  useEffect(() => {
+    const performLoadNextPiece = () => {
+      setMatchScoreChain([]);
 
-    clearTimeout(evaluateGridTimerRef.current);
-    evaluateGridTimerRef.current = 0;
+      const newPiece = nextPiece.length === 0
+        ? generateNewPiece(score, pieceCol)
+        : nextPiece;
+
+      // check if the active piece column can fit new piece
+      if (grid[pieceCol].length > pieceRow) {
+        setLives(lives - 1);
+      }
+      else {
+        setPiece(newPiece);
+        setNextPiece(generateNewPiece(score, START_COL));
+
+        queueMovePieceDown();
+      }
+    }
+
+    if (loadNextPiece) {
+      setLoadNextPiece(false);
+      if (gameState === EGameState.STARTED) {
+        performLoadNextPiece();
+      }
+    }
+
+  }, [loadNextPiece]);
+
+  function queueMovePieceDown() {
+    if (queueMovePieceDownTimerRef.current) {
+      clearTimeout(queueMovePieceDownTimerRef.current);
+    }
+
+    queueMovePieceDownTimerRef.current = setTimeout(
+      () => setMovePieceDown(true),
+      //2000
+      getLevel(score).speed
+    );
   }
 
   useEffect(() => {
@@ -150,12 +190,13 @@ function Board() {
           });
 
           setPiece([]);
-
           setGrid(newGrid);
           setEvaluateGrid(true);
 
           return prev;
         }
+
+        queueMovePieceDown();
 
         return prev - 1;
       });
@@ -163,44 +204,14 @@ function Board() {
 
     if (movePieceDown) {
       setMovePieceDown(false);
-      if (grid.length > 0 && piece.length > 0) {
+      if (piece.length > 0) {
         performMovePieceDown();
       }
     }
   }, [movePieceDown]);
 
-  function loadNextPiece(delay: number) {
-    // set next piece position immediately to allow movement before making new piece
-    setPieceCol(START_COL);
-    setPieceRow(START_ROW);
-    loadNextPieceTimerRef.current = setTimeout(() => setMakeNewPiece(true), delay);
-  };
-
-  useEffect(() => {
-    if (makeNewPiece) {
-      setMakeNewPiece(false);
-
-      if (gameState === EGameState.STARTED) {
-        setMatchScoreChain([]);
-        const newPiece = nextPiece.length === 0
-          ? generateNewPiece(level, pieceCol)
-          : nextPiece;
-
-        if (grid[pieceCol].length > pieceRow) {
-          setLives(prev => prev - 1);
-        }
-        else {
-          setPiece(newPiece);
-          setNextPiece(generateNewPiece(level, START_COL));
-        }
-      }
-    }
-
-  }, [makeNewPiece]);
-
   useEffect(() => {
     const performEvaluateGrid = () => {
-
       let updateGrid = false;
 
       // remove MATCHED cells
@@ -236,7 +247,7 @@ function Board() {
             console.error(">>> UNALIGNED COL DATA!!! (2)", pieceCol, grid)
           }
         });
-    });
+      });
 
       // don't match on this cycle if we just deleted (wait until next cycle)
       if (!updateGrid) {
@@ -250,7 +261,7 @@ function Board() {
             if (cell.state === ECellState.DIRTY) {
               let matched = false;
               
-              if (cell.type === ECellType.JEWELBOX) {
+              if (cell.type === ECellType.JEWELBOX && !DEBUG_COLORS) {
                 matched = true;
                 
                 if (cell.row > 0) {
@@ -265,7 +276,6 @@ function Board() {
               getCellMatches(cell, -1, 1, nwse);
               getCellMatches(cell, 1, -1, nwse);
               if (nwse.length >= MATCH_SIZE) {
-                console.log(">>> MATCHED [NWSE]");
                 matchedCells.push.apply(matchedCells, nwse);
                 updateGrid = true;
                 matched = true;
@@ -275,7 +285,6 @@ function Board() {
               getCellMatches(cell, 0, 1, ns);
               getCellMatches(cell, 0, -1, ns);
               if (ns.length >= MATCH_SIZE) {
-                console.log(">>> MATCHED [NS]");
                 matchedCells.push.apply(matchedCells, ns);
                 updateGrid = true;
                 matched = true;
@@ -285,7 +294,6 @@ function Board() {
               getCellMatches(cell, 1, 1, nesw);
               getCellMatches(cell, -1, -1, nesw);
               if (nesw.length >= MATCH_SIZE) {
-                console.log(">>> MATCHED [NESW]");
                 matchedCells.push.apply(matchedCells, nesw);
                 updateGrid = true;
                 matched = true;
@@ -295,7 +303,6 @@ function Board() {
               getCellMatches(cell, -1, 0, ew);
               getCellMatches(cell, 1, 0, ew);
               if (ew.length >= MATCH_SIZE) {
-                console.log(">>> MATCHED [EW]");
                 matchedCells.push.apply(matchedCells, ew);
                 updateGrid = true;
                 matched = true;
@@ -335,17 +342,20 @@ function Board() {
 
       if (updateGrid) {
         setGrid([...grid])
-        evaluateGridTimerRef.current = setTimeout(() => setEvaluateGrid(true), MATCH_DELAY);
+        queueEvaluateGridTimerRef.current = setTimeout(() => setEvaluateGrid(true), MATCH_DELAY);
       }
       else {
+        // check if any column is above capacity
         if (grid.some(colCells => colCells.length >= ROWS)) {
-          setLives(prev => prev - 1);
+          setLives(lives - 1);
         }
         else {
-          const delay = setMatchScoreChain.length > 0
-            ? speed / 2
-            : speed;
-          loadNextPiece(delay);
+          let speed = getLevel(score).speed;
+          if (matchScoreChain.length > 0) {
+            speed = speed / 2;
+          }
+
+          queueLoadNextPiece(speed);
         }
       }
     };
@@ -372,11 +382,6 @@ function Board() {
       return matchingCells;
     }
   }
-
-  useEffect(() => {
-    const scoreLevel = getLevelFromScore(score);
-    setLevel(scoreLevel);
-  }, [score]);
 
 
   //
@@ -408,16 +413,22 @@ function Board() {
         break;
 
       case "ArrowUp":
-        const rotatedPiece = piece.map((_, i) => piece.at(i-1)!);
-        setPiece(rotatedPiece);
+        if (piece.length) {
+          const rotatedPiece = piece.map((_, i) => piece.at(i - 1)!);
+          setPiece(rotatedPiece);
+        }
         break;
       
       case "ArrowDown":
-        setMovePieceDown(true);
+        if (piece.length) {
+          setMovePieceDown(true);
+        }
         break
 
       case " ":
-        setPieceRow(() => grid[pieceCol].length);
+        if (piece.length) {
+          setPieceRow(() => grid[pieceCol].length);
+        }
         break;
 
       default:
@@ -435,7 +446,7 @@ function Board() {
     });
   }
   
-  function renderGrid(pieceRow: number, pieceCol: number): React.ReactElement[] {
+  function renderGrid(): React.ReactElement[] {
     const pieceCells = piece.map((c, row) => {
       c.row = pieceRow + row;
       c.col = pieceCol;
@@ -451,7 +462,7 @@ function Board() {
     return gridCells.flat().concat(pieceCells);
   }
 
-  function renderLives(lives: number): React.ReactElement[] {
+  function renderLives(): React.ReactElement[] {
     const lifeDots = [];
     for (let i = 0; i < lives; i++) {
       lifeDots.push(
@@ -461,15 +472,19 @@ function Board() {
     return lifeDots;
   };
 
-  function renderMatchScoreChain(matchScoreChain: number[]) {
-
-    // const getTextSizeClass = (i: number) => {
-    //   return ``
-    // };
-
+  function renderMatchScoreChain() {
+    const textClassNames = [
+      "text-[16px]", "text-[20px]", "text-[26px]", "text-[34px]", "text-[44px]",
+      "text-[56px]", "text-[70px]", "text-[86px]", "text-[104px]", "text-[124px]",
+    ]
+    
     return matchScoreChain.map((score, i) => {
       return (
-        <div key={i} className={`text-${i > 1 ? i : ""}xl animate-pulse fade-out-text font-extrabold text-white`}>
+        <div key={i}
+          className={`absolute
+            ${textClassNames[i]} font-extrabold text-white match-score-change-animation`
+          }
+        >
           { score }
         </div>
       )
@@ -478,46 +493,48 @@ function Board() {
 
   return (
     <>
-      <div className="flex flex-row gap-4">
-        <div className="flex flex-col items-center h-full mt-8 gap-2">
+      <div className="flex flex-row gap-8">
+        <div className="flex flex-col items-end gap-8 mt-8 w-[120px] h-[calc(full - 8rem)]">
           <div className="flex flex-col items-center">
-            <span className="text-md font-semibold text-amber-400">LIVES</span>
+            <span className="text-lg font-semibold text-amber-400">LIVES</span>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex flex-row gap-2 justify-center items-center w-[76px] h-7">
-                    {renderLives(lives)}
+                    {renderLives()}
                   </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-md font-semibold text-amber-400">LEVEL</span>
+            <span className="text-lg font-semibold text-amber-400">LEVEL</span>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex justify-center w-[76px]">
-                    <span className="text-white text-lg font-semibold">{level}</span>
+                    <span className="text-white text-xl font-semibold">{getLevel(score).level}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-md font-semibold text-amber-400">SCORE</span>
+            <span className="text-lg font-semibold text-amber-400">SCORE</span>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex justify-center w-[76px]">
-                    <span className="text-white text-lg font-semibold">{score}</span>
+                    <span className="text-white text-xl font-semibold">{score}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-2 justify-center">
-            { renderMatchScoreChain(matchScoreChain) }
+          <div className="flex flex-col items-center">
+            <div className="w-[100px] p-2 flex flex-col items-center">
+              {renderMatchScoreChain()}
+            </div>
           </div>
         </div>
         
@@ -534,20 +551,22 @@ function Board() {
                 {
                   hasStarted()
                   && 
-                  renderGrid(pieceRow, pieceCol)
+                  renderGrid()
                 }
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col items-center h-full mt-8">
-          <span className="text-md font-semibold text-amber-400">NEXT</span>
-          <div className="border-2 border-amber-400">
-            <div className="border-2 border-black">
-              <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-4">
-                <div className="relative" style={{ width: UNIT, height: UNIT * PIECE_SIZE }}>
-                  { renderNextPiece() }
+        <div className="flex flex-col items-start mt-8 w-[120px] h-[calc(full - 8rem)]">
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-semibold text-amber-400">NEXT</span>
+            <div className="border-2 border-amber-400">
+              <div className="border-2 border-black">
+                <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-4">
+                  <div className="relative" style={{ width: UNIT, height: UNIT * PIECE_SIZE }}>
+                    {renderNextPiece()}
+                  </div>
                 </div>
               </div>
             </div>

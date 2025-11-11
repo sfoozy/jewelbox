@@ -16,7 +16,7 @@ function Cell({
 
   return (
     <div
-      className={`absolute border-2 border-gray-700 rounded-md box-border ${getClassName(cell.type, cell.state)}`}
+      className={`absolute border border-gray-700 rounded-md box-border ${getClassName(cell.type, cell.state)}`}
       style={{
         width: `${UNIT}px`,
         height: `${UNIT}px`,

@@ -1,5 +1,5 @@
 import type { CellData } from "../../types/cellData";
-import { COLS, ECellState, ECellType, PIECE_SIZE, ROWS } from "../../types/constants";
+import { COLS, DEBUG_COLORS, ECellState, ECellType, PIECE_SIZE, ROWS } from "../../types/constants";
 import type { LevelData } from "../../types/levelData";
 
 export const START_COL = Math.floor(COLS / 2);
@@ -7,6 +7,10 @@ export const START_ROW = ROWS - PIECE_SIZE;
 let cellCounter = 0;
 
 export function getRandomCellType(levelData: LevelData): ECellType {
+  if (DEBUG_COLORS) {
+    return (cellCounter - 1) % (Object.keys(ECellType).length / 2)
+  }
+  
   const choices: string[] = [];
   Object.entries(levelData.cellFrequency).forEach(([type, freq]: [string, number]) => {
     for (let i = 0; i < freq; i++) {
@@ -18,10 +22,10 @@ export function getRandomCellType(levelData: LevelData): ECellType {
   return Number(choices[rand]);
 }
 
-export function generateNewPiece(level: number, startCol: number): CellData[] {
+export function generateNewPiece(score: number, startCol: number): CellData[] {
   const piece = [];
 
-  const levelData = getLevelData(level);
+  const levelData = getLevel(score);
   for (let i = 0; i < PIECE_SIZE; i++) {  
     piece.push({
       id: cellCounter++,
@@ -32,7 +36,8 @@ export function generateNewPiece(level: number, startCol: number): CellData[] {
     });
   }
 
-  if (piece.some(c => c.type === ECellType.JEWELBOX)) {
+  // if any single cell is a JEWELBOX, make all cells in this piece a JEWELBOX
+  if (piece.some(c => c.type === ECellType.JEWELBOX) && !DEBUG_COLORS) {
     piece.forEach(c => c.type = ECellType.JEWELBOX);
   }
 
@@ -57,7 +62,7 @@ export function getCellScore(cellType: ECellType): number {
       return 75;
     case ECellType.RARE_1:
     case ECellType.RARE_2:
-      return 250;
+      return 300;
     case ECellType.ULTRA_RARE_1:
       return 500;
     case ECellType.JEWELBOX:
@@ -65,27 +70,24 @@ export function getCellScore(cellType: ECellType): number {
   }
 }
 
-export function getLevelFromScore(score: number): number {
-  return Math.floor(score / 10000); 
-}
-
-export function getLevelData(level: number): LevelData {
+export function getLevel(score: number): LevelData {
+  const level = Math.floor(score / 1000);
   return {
     level: level,
-    speed: Math.max(800 - (level * 50), 200),
+    speed: Math.max(800 - (level * 50), 300),
     cellFrequency: {
-      [ECellType.ULTRA_COMMON_1]: 20,
-      [ECellType.ULTRA_COMMON_2]: 20,
-      [ECellType.ULTRA_COMMON_3]: 20,
-      [ECellType.ULTRA_COMMON_4]: 20,
-      [ECellType.ULTRA_COMMON_5]: level > 3 ? 20 : 0,
-      [ECellType.COMMON_1]: 16,
-      [ECellType.COMMON_2]: level > 1 ? 16 : 0,
-      [ECellType.COMMON_3]: level > 5 ? 16 : 0,
-      [ECellType.RARE_1]: 4,
-      [ECellType.RARE_2]: level > 7 ? 4 : 0,
-      [ECellType.ULTRA_RARE_1]: level > 9 ? 2 : 0,
+      [ECellType.ULTRA_COMMON_1]: 18,
+      [ECellType.ULTRA_COMMON_2]: 18,
+      [ECellType.ULTRA_COMMON_3]: 18,
+      [ECellType.ULTRA_COMMON_4]: 18,
+      [ECellType.ULTRA_COMMON_5]: level > 3 ? 18 : 0,
+      [ECellType.COMMON_1]: 12,
+      [ECellType.COMMON_2]: level > 1 ? 12 : 0,
+      [ECellType.COMMON_3]: level > 5 ? 12 : 0,
+      [ECellType.RARE_1]: level > 5 ? 3 : 2,
+      [ECellType.RARE_2]: level > 7 ? 3 : 0,
+      [ECellType.ULTRA_RARE_1]: level > 9 ? 1 : 0,
       [ECellType.JEWELBOX]: 1,
     }
-  }
+  };
 }
