@@ -64,14 +64,14 @@ export function getCellScore(cellType: ECellType): number {
     case ECellType.RARE_2:
       return 300;
     case ECellType.ULTRA_RARE_1:
-      return 500;
+      return 600;
     case ECellType.JEWELBOX:
       return 0;
   }
 }
 
 export function getLevel(score: number): LevelData {
-  const level = Math.floor(score / 1000);
+  const level = Math.floor(score / 10000);
   return {
     level: level,
     speed: Math.max(800 - (level * 50), 300),
@@ -84,9 +84,9 @@ export function getLevel(score: number): LevelData {
       [ECellType.COMMON_1]: 12,
       [ECellType.COMMON_2]: level > 1 ? 12 : 0,
       [ECellType.COMMON_3]: level > 5 ? 12 : 0,
-      [ECellType.RARE_1]: level > 5 ? 3 : 2,
-      [ECellType.RARE_2]: level > 7 ? 3 : 0,
-      [ECellType.ULTRA_RARE_1]: level > 9 ? 1 : 0,
+      [ECellType.RARE_1]: level > 5 ? 4 : 3,
+      [ECellType.RARE_2]: level > 7 ? 4 : 0,
+      [ECellType.ULTRA_RARE_1]: level > 9 ? 2 : 0,
       [ECellType.JEWELBOX]: 1,
     }
   };

@@ -11,9 +11,9 @@ export function getCellColor(cellType: ECellType, cellState: ECellState) {
     case ECellType.ULTRA_COMMON_4:
       return cellState === ECellState.MATCHED ? "bg-slate-300" : "bg-gradient-to-tr from-slate-300 to-slate-500"
     case ECellType.ULTRA_COMMON_5:
-      return cellState === ECellState.MATCHED ? "bg-green-500" : "bg-gradient-to-tr from-green-400 to-green-700";
-    case ECellType.COMMON_1:
       return cellState === ECellState.MATCHED ? "bg-cyan-400" : "bg-gradient-to-tr from-teal-300 to-cyan-600";
+    case ECellType.COMMON_1:
+      return cellState === ECellState.MATCHED ? "bg-green-500" : "bg-gradient-to-tr from-green-400 to-green-700";
     case ECellType.COMMON_2:
       return cellState === ECellState.MATCHED ? "bg-blue-400" : "bg-gradient-to-tr from-sky-500 to-blue-700";
     case ECellType.COMMON_3:
