@@ -1,12 +1,15 @@
 export const DEBUG = false;
 export const DEBUG_COLORS = false;
-export const UNIT = 30;
+export const DEBUG_LEVELS = false;
+
+export const UNIT = 40;
 export const ROWS = 15;
 export const COLS = 7;
 export const STARTING_LIVES = 3;
 export const PIECE_SIZE = 3;
 export const MATCH_SIZE = 3;
 export const MATCH_DELAY = 500;
+export const NEW_LIFE_DELAY = 1000;
 
 export enum EGameState {
   NONE,

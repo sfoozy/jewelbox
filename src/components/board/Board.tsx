@@ -1,12 +1,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import "./Board.css";
+
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
-import chimeSound from "../../resources/sounds/chime.mp3";
-import { COLS, DEBUG_COLORS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, PIECE_SIZE, ROWS, STARTING_LIVES, UNIT } from "../../types/constants";
+import matchSound1 from "../../resources/sounds/chime.mp3";
+import matchSound2 from "../../resources/sounds/ping2.mp3";
+import jewelboxAlert from "../../resources/sounds/jewelbox_alert.mp3";
+import newLifeSound from "../../resources/sounds/life.mp3";
+import jewelboxImage from "../../resources/images/jewelbox.png";
+
+import { COLS, DEBUG_COLORS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, NEW_LIFE_DELAY, PIECE_SIZE, ROWS, STARTING_LIVES, UNIT } from "../../types/constants";
 import type { CellData } from "../../types/cellData";
 import Cell from "../cell/Cell";
 import { generateEmptyBoard, generateNewPiece, getCellScore, getLevel, START_COL, START_ROW } from "./boardHelpers";
+import { isRare } from "../cell/cellHelpers";
 
 function Board() {
 
@@ -15,7 +22,10 @@ function Board() {
   //
 
   const [music] = useState(new Audio(jewelboxMusic));
-  const [sfxChime] = useState(new Audio(chimeSound));
+  const [sfxMatch1] = useState(new Audio(matchSound1));
+  const [sfxMatch2] = useState(new Audio(matchSound2));
+  const [sfxJewelboxAlert] = useState(new Audio(jewelboxAlert));
+  const [sfxNewLife] = useState(new Audio(newLifeSound));
   const [gameState, setGameState] = useState(EGameState.NONE);
 
   const [pieceCol, setPieceCol] = useState(START_COL);
@@ -33,6 +43,7 @@ function Board() {
   const queueLoadNextPieceTimerRef = useRef(0);
   const queueMovePieceDownTimerRef = useRef(0);
   const queueEvaluateGridTimerRef = useRef(0);
+  const queueRemoveLifeTimerRef = useRef(0);
   const boardRef = useRef<HTMLDivElement>(null);
 
 
@@ -87,12 +98,27 @@ function Board() {
     else if (gameState === EGameState.ENDED) {
       stopTimers();
       music.pause();
+
       console.log("=== GAME OVER ===");
     }
 
     setBoardFocus();
 
   }, [gameState])
+
+  function stopTimers() {
+    clearInterval(queueMovePieceDownTimerRef.current);
+    queueMovePieceDownTimerRef.current = 0;
+
+    clearTimeout(queueLoadNextPieceTimerRef.current);
+    queueLoadNextPieceTimerRef.current = 0;
+
+    clearTimeout(queueEvaluateGridTimerRef.current);
+    queueEvaluateGridTimerRef.current = 0;
+
+    clearTimeout(queueRemoveLifeTimerRef.current);
+    queueRemoveLifeTimerRef.current = 0;
+  }
 
   function hasStarted(): boolean {
     return [EGameState.STARTED, EGameState.PAUSED].includes(gameState);
@@ -102,6 +128,19 @@ function Board() {
     if (boardRef.current) {
       boardRef.current.focus();
     }
+  }
+
+  function queueRemoveLife() {
+    if (queueRemoveLifeTimerRef.current) {
+      clearTimeout(queueRemoveLifeTimerRef.current);
+    }
+
+    queueRemoveLifeTimerRef.current = setTimeout(
+      () => setLives(prev => prev - 1),
+      NEW_LIFE_DELAY
+    );
+
+    sfxNewLife.play();
   }
 
   useEffect(() => {
@@ -115,22 +154,19 @@ function Board() {
     }
   }, [lives]);
 
-  function stopTimers() {
-    clearInterval(queueMovePieceDownTimerRef.current);
-    queueMovePieceDownTimerRef.current = 0;
-
-    clearTimeout(queueLoadNextPieceTimerRef.current);
-    queueLoadNextPieceTimerRef.current = 0;
-
-    clearTimeout(queueEvaluateGridTimerRef.current);
-    queueEvaluateGridTimerRef.current = 0;
-  }
-
   function queueLoadNextPiece(delay: number) {
     // set next piece position immediately to allow movement before making new piece
     setPieceCol(START_COL);
     setPieceRow(START_ROW);
-    queueLoadNextPieceTimerRef.current = setTimeout(() => setLoadNextPiece(true), delay);
+
+    if (queueLoadNextPieceTimerRef.current) {
+      clearTimeout(queueLoadNextPieceTimerRef.current);
+    }
+
+    queueLoadNextPieceTimerRef.current = setTimeout(
+      () => setLoadNextPiece(true),
+      delay
+    );
   };
 
   useEffect(() => {
@@ -143,11 +179,16 @@ function Board() {
 
       // check if the active piece column can fit new piece
       if (grid[pieceCol].length > pieceRow) {
-        setLives(lives - 1);
+        queueRemoveLife();
       }
       else {
         setPiece(newPiece);
-        setNextPiece(generateNewPiece(score, START_COL));
+
+        const newNextPiece = generateNewPiece(score, START_COL);
+        if (newNextPiece[2].type === ECellType.JEWELBOX) {
+          sfxJewelboxAlert.play();
+        }
+        setNextPiece(newNextPiece);
 
         queueMovePieceDown();
       }
@@ -169,7 +210,6 @@ function Board() {
 
     queueMovePieceDownTimerRef.current = setTimeout(
       () => setMovePieceDown(true),
-      //2000
       getLevel(score).speed
     );
   }
@@ -209,6 +249,17 @@ function Board() {
       }
     }
   }, [movePieceDown]);
+
+  function queueEvaluateGrid() {
+    if (queueEvaluateGridTimerRef.current) {
+      clearTimeout(queueEvaluateGridTimerRef.current);
+    }
+
+    queueEvaluateGridTimerRef.current = setTimeout(
+      () => setEvaluateGrid(true),
+      MATCH_DELAY
+    );
+  }
 
   useEffect(() => {
     const performEvaluateGrid = () => {
@@ -326,28 +377,37 @@ function Board() {
 
         if (matchedCells.length > 0) {
           let matchScore = 0;
+          let matchedRare = false;
           matchedCells.forEach(c => {
             if (c.state !== ECellState.MATCHED) {
               c.state = ECellState.MATCHED;
               matchScore += getCellScore(c.type) * (matchScoreChain.length + 1);
+              if (isRare(c.type)) {
+                matchedRare = true;
+              }
             }
           });
 
           setMatchScoreChain([...matchScoreChain, matchScore]);
           setScore(prev => prev + matchScore);
 
-          sfxChime.play();
+          if (matchedRare) {
+            sfxMatch2.play();
+          }
+          else {
+            sfxMatch1.play();
+          }
         }
       }
 
       if (updateGrid) {
-        setGrid([...grid])
-        queueEvaluateGridTimerRef.current = setTimeout(() => setEvaluateGrid(true), MATCH_DELAY);
+        setGrid([...grid]);
+        queueEvaluateGrid();
       }
       else {
         // check if any column is above capacity
         if (grid.some(colCells => colCells.length >= ROWS)) {
-          setLives(lives - 1);
+          queueRemoveLife();
         }
         else {
           let speed = getLevel(score).speed;
@@ -545,13 +605,24 @@ function Board() {
             ref={boardRef}
           >
             <div className="border-2 border-black">
-              <div className="relative flex bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden"
+              <div className="relative flex justify-center items-center
+                bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden"
                 style={{ width: `${COLS * UNIT}px`, height: `${ROWS * UNIT}px` }}
+                onClick={() => {
+                  if (!hasStarted()) {
+                    setGameState(EGameState.STARTING);
+                  }
+                }}
               >
                 {
-                  hasStarted()
-                  && 
                   renderGrid()
+                }
+                {
+                  [EGameState.ENDED, EGameState.NONE].includes(gameState)
+                  &&
+                  <div className="absolute">
+                    <img src={jewelboxImage} alt="jewelbox" height={UNIT*COLS/2} width={UNIT*COLS/2} />
+                  </div>
                 }
               </div>
             </div>

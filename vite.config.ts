@@ -13,4 +13,5 @@ export default defineConfig({
     port: 3000
   },
   base: "https://sfoozy.github.io/jewelbox/",
+  publicDir: 'public', // Change 'my-public-assets' to your desired folder name
 })

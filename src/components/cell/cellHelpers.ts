@@ -28,3 +28,7 @@ export function getCellColor(cellType: ECellType, cellState: ECellState) {
       return cellState === ECellState.MATCHED ? "bg-gray-400" : "bg-gradient-to-br from-yellow-500 via-teal-500 to-pink-400";
   }
 }
+
+export function isRare(type: ECellType): boolean {
+  return [ECellType.RARE_1, ECellType.RARE_2, ECellType.ULTRA_RARE_1].includes(type);
+}
