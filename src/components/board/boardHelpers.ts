@@ -25,7 +25,7 @@ export function getRandomCellType(levelData: LevelData): ECellType {
 export function generateNewPiece(score: number, startCol: number): CellData[] {
   const piece = [];
 
-  const levelData = getLevel(score);
+  const levelData = getLevelData(score);
   for (let i = 0; i < PIECE_SIZE; i++) {  
     piece.push({
       id: cellCounter++,
@@ -70,24 +70,28 @@ export function getCellScore(cellType: ECellType): number {
   }
 }
 
-export function getLevel(score: number): LevelData {
+export function getLevelData(score: number): LevelData {
   const level = Math.floor(score / 10000);
-  return {
+  const levelData = {
     level: level,
     speed: Math.max(800 - (level * 50), 200),
     cellFrequency: {
-      [ECellType.ULTRA_COMMON_1]: 20,
-      [ECellType.ULTRA_COMMON_2]: 20,
-      [ECellType.ULTRA_COMMON_3]: 20,
-      [ECellType.ULTRA_COMMON_4]: 20,
-      [ECellType.ULTRA_COMMON_5]: level > 3 ? 20 : 0,
-      [ECellType.COMMON_1]: 16,
-      [ECellType.COMMON_2]: level > 1 ? 16 : 0,
-      [ECellType.COMMON_3]: level > 5 ? 16 : 0,
-      [ECellType.RARE_1]: level > 5 ? 6 : 4,
-      [ECellType.RARE_2]: level > 7 ? 6 : 0,
-      [ECellType.ULTRA_RARE_1]: level > 9 ? 2 : 0,
-      [ECellType.JEWELBOX]: 1,
+      [ECellType.ULTRA_COMMON_1]: 400,
+      [ECellType.ULTRA_COMMON_2]: 400,
+      [ECellType.ULTRA_COMMON_3]: 400,
+      [ECellType.ULTRA_COMMON_4]: level > 5 ? 0 : 400,
+      [ECellType.ULTRA_COMMON_5]: level > 3 ? 400 : 0,
+      [ECellType.COMMON_1]: 300,
+      [ECellType.COMMON_2]: level > 1 ? 300 : 0,
+      [ECellType.COMMON_3]: level > 5 ? 300 : 0,
+      [ECellType.RARE_1]: level > 3 ? 150 : 100,
+      [ECellType.RARE_2]: level > 7 ? 150 : 0,
+      [ECellType.ULTRA_RARE_1]: level > 9 ? 100 : 0,
+      [ECellType.JEWELBOX]: 0,
     }
   };
+
+  const totalFreq = Object.values(levelData.cellFrequency).reduce((total, freq) => total + freq);
+  levelData.cellFrequency[ECellType.JEWELBOX] = Math.floor(totalFreq / 100);
+  return levelData;
 }

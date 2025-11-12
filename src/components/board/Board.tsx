@@ -12,7 +12,7 @@ import jewelboxImage from "../../resources/images/jewelbox.png";
 import { COLS, DEBUG_COLORS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, NEW_LIFE_DELAY, PIECE_SIZE, ROWS, STARTING_LIVES, UNIT } from "../../types/constants";
 import type { CellData } from "../../types/cellData";
 import Cell from "../cell/Cell";
-import { generateEmptyBoard, generateNewPiece, getCellScore, getLevel, START_COL, START_ROW } from "./boardHelpers";
+import { generateEmptyBoard, generateNewPiece, getCellScore, getLevelData, START_COL, START_ROW } from "./boardHelpers";
 import { isRare } from "../cell/cellHelpers";
 
 function Board() {
@@ -149,7 +149,7 @@ function Board() {
         setGameState(EGameState.ENDED);
       } else if (lives < STARTING_LIVES) {
         initializeNewBoard();
-        queueLoadNextPiece(getLevel(score).speed);
+        queueLoadNextPiece(getLevelData(score).speed);
       }
     }
   }, [lives]);
@@ -210,7 +210,7 @@ function Board() {
 
     queueMovePieceDownTimerRef.current = setTimeout(
       () => setMovePieceDown(true),
-      getLevel(score).speed
+      getLevelData(score).speed
     );
   }
 
@@ -410,7 +410,7 @@ function Board() {
           queueRemoveLife();
         }
         else {
-          let speed = getLevel(score).speed;
+          let speed = getLevelData(score).speed;
           if (matchScoreChain.length > 0) {
             speed = speed / 2;
           }
@@ -573,7 +573,7 @@ function Board() {
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex justify-center w-[76px]">
-                    <span className="text-white text-xl font-semibold">{getLevel(score).level}</span>
+                    <span className="text-white text-xl font-semibold">{getLevelData(score).level}</span>
                   </div>
                 </div>
               </div>
@@ -621,7 +621,13 @@ function Board() {
                   [EGameState.ENDED, EGameState.NONE].includes(gameState)
                   &&
                   <div className="absolute">
-                    <img src={jewelboxImage} alt="jewelbox" height={UNIT*COLS/2} width={UNIT*COLS/2} />
+                    <img
+                      className="border-shadow"
+                      src={jewelboxImage}
+                      alt="jewelbox"
+                      height={UNIT*COLS/2}
+                      width={UNIT*COLS/2}
+                    />
                   </div>
                 }
               </div>
