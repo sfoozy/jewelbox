@@ -4,8 +4,8 @@ import './JewelBox.css';
 function JewelBox() {
   return (
     <div className="flex flex-col h-dvh">
-      <div className="bg-gray-600 flex justify-end pr-4 text-sm">
-        JewelBox v0.1.0
+      <div className="bg-gray-600 flex justify-end items-center pr-4 pb-0.5 text-sm">
+        JewelBox v0.2.0
       </div>
       <div className="flex flex-col items-center justify-center bg-gray-500 h-full overflow-scroll">
         <span className='text-3xl font-bold my-4 text-gray-700'>JewelBox</span>

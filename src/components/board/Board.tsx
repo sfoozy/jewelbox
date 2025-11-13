@@ -14,11 +14,25 @@ import jewelboxAlert from "../../resources/sounds/jewelbox_alert.mp3";
 import newLifeSound from "../../resources/sounds/life.mp3";
 import jewelboxImage from "../../resources/images/jewelbox.png";
 
-import { COLS, DEBUG_COLORS, ECellState, ECellType, EGameState, MATCH_DELAY, MATCH_SIZE, NEW_LIFE_DELAY, PIECE_SIZE, ROWS, STARTING_LIVES, UNIT } from "../../types/constants";
-import type { CellData } from "../../types/cellData";
-import Cell from "../cell/Cell";
-import { generateEmptyBoard, generateNewPiece, getCellScore, getLevelData, START_COL, START_ROW } from "./boardHelpers";
-import { isRare } from "../cell/cellHelpers";
+import {
+  COLS,
+  DEBUG_COLORS,
+  EJewelState,
+  EJewelType,
+  EGameState,
+  MATCH_DELAY,
+  MATCH_SIZE,
+  NEW_LIFE_DELAY,
+  PIECE_SIZE,
+  ROWS,
+  STARTING_LIVES,
+  UNIT
+} from "../../types/constants";
+import Jewel from "../jewel/Jewel";
+import { generateEmptyBoard, generateNewPiece, getLevelData, START_COL, START_ROW } from "./boardHelpers";
+import { getJewelValue, isRareJewel } from "../jewel/jewelHelpers";
+import Box from "../box/Box";
+import type { BoxData } from "../../types/boxData";
 
 function Board() {
 
@@ -26,34 +40,34 @@ function Board() {
   // states
   //
 
-  const [music] = useState(new Audio(jewelboxMusic));
-  const [sfxMatch1] = useState(new Audio(matchChime1));
-  const [sfxMatch2] = useState(new Audio(matchChime2));
-  const [sfxMatch3] = useState(new Audio(matchChime3));
-  const [sfxMatch4] = useState(new Audio(matchChime4));
-  const [sfxMatch5] = useState(new Audio(matchChime5));
-  const [sfxMatch6] = useState(new Audio(matchChime6));
-  const [sfxMatchRare] = useState(new Audio(matchChimeRare));
-  const [sfxJewelboxAlert] = useState(new Audio(jewelboxAlert));
-  const [sfxNewLife] = useState(new Audio(newLifeSound));
-  const [gameState, setGameState] = useState(EGameState.NONE);
+  const musicRef = useRef(new Audio(jewelboxMusic));
+  const sfxMatch1Ref = useRef(new Audio(matchChime1));
+  const sfxMatch2Ref = useRef(new Audio(matchChime2));
+  const sfxMatch3Ref = useRef(new Audio(matchChime3));
+  const sfxMatch4Ref = useRef(new Audio(matchChime4));
+  const sfxMatch5Ref = useRef(new Audio(matchChime5));
+  const sfxMatch6Ref = useRef(new Audio(matchChime6));
+  const sfxMatchRareRef = useRef(new Audio(matchChimeRare));
+  const sfxJewelboxAlertRef = useRef(new Audio(jewelboxAlert));
+  const sfxNewLifeRef = useRef(new Audio(newLifeSound));
 
+  const [gameState, setGameState] = useState(EGameState.NONE);
   const [pieceCol, setPieceCol] = useState(START_COL);
   const [pieceRow, setPieceRow] = useState(START_ROW);
-  const [piece, setPiece] = useState<CellData[]>([]);
-  const [nextPiece, setNextPiece] = useState<CellData[]>([]);
-  const [loadNextPiece, setLoadNextPiece] = useState(false);
-  const [movePieceDown, setMovePieceDown] = useState(false);
-  const [grid, setGrid] = useState<CellData[][]>([]);
-  const [evaluateGrid, setEvaluateGrid] = useState(false);
+  const [piece, setPiece] = useState<BoxData[]>([]);
+  const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
+  const [grid, setGrid] = useState<BoxData[][]>([]);
   const [lives, setLives] = useState(0);
   const [score, setScore] = useState(0);
   const [matchChain, setMatchChain] = useState<number[]>([]);
 
-  const queueLoadNextPieceTimerRef = useRef(0);
-  const queueMovePieceDownTimerRef = useRef(0);
-  const queueEvaluateGridTimerRef = useRef(0);
-  const queueRemoveLifeTimerRef = useRef(0);
+  const [callLoadNextPiece, setCallLoadNextPiece] = useState(false);
+  const delayLoadNextPieceTimerRef = useRef(0);
+  const [callMovePieceDown, setCallMovePieceDown] = useState(false);
+  const delayMovePieceDownTimerRef = useRef(0);
+  const [callEvaluateGrid, setCallEvaluateGrid] = useState(false);
+  const delayEvaluateGridTimerRef = useRef(0);
+  const delayRemoveLifeTimerRef = useRef(0);
   const boardRef = useRef<HTMLDivElement>(null);
 
 
@@ -79,10 +93,10 @@ function Board() {
     if (gameState === EGameState.STARTING) {
       stopTimers();
 
-      music.pause();
-      music.currentTime = 0;
-      music.loop = true;
-      music.play();
+      musicRef.current.pause();
+      musicRef.current.currentTime = 0;
+      musicRef.current.loop = true;
+      musicRef.current.play();
   
       initializeNewGame();
 
@@ -91,23 +105,23 @@ function Board() {
     else if (gameState === EGameState.STARTED) {
       // continue by movie piece if we have one
       if (piece.length > 0) {
-        setMovePieceDown(true);
+        movePieceDown();
       }
-      // else, continue by re-evaluating the board (will trigger queueLoadNextPiece())
+      // else, continue by re-evaluating the board (will call delayLoadNextPiece())
       else {
-        setEvaluateGrid(true);
+        evaluateGrid();
       }
 
-      music.loop = true;
-      music.play();
+      musicRef.current.loop = true;
+      musicRef.current.play();
     }
     else if (gameState === EGameState.PAUSED) {
       stopTimers();
-      music.pause();
+      musicRef.current.pause();
     }
     else if (gameState === EGameState.ENDED) {
       stopTimers();
-      music.pause();
+      musicRef.current.pause();
 
       console.log("=== GAME OVER ===");
     }
@@ -117,17 +131,17 @@ function Board() {
   }, [gameState])
 
   function stopTimers() {
-    clearInterval(queueMovePieceDownTimerRef.current);
-    queueMovePieceDownTimerRef.current = 0;
+    clearInterval(delayMovePieceDownTimerRef.current);
+    delayMovePieceDownTimerRef.current = 0;
 
-    clearTimeout(queueLoadNextPieceTimerRef.current);
-    queueLoadNextPieceTimerRef.current = 0;
+    clearTimeout(delayLoadNextPieceTimerRef.current);
+    delayLoadNextPieceTimerRef.current = 0;
 
-    clearTimeout(queueEvaluateGridTimerRef.current);
-    queueEvaluateGridTimerRef.current = 0;
+    clearTimeout(delayEvaluateGridTimerRef.current);
+    delayEvaluateGridTimerRef.current = 0;
 
-    clearTimeout(queueRemoveLifeTimerRef.current);
-    queueRemoveLifeTimerRef.current = 0;
+    clearTimeout(delayRemoveLifeTimerRef.current);
+    delayRemoveLifeTimerRef.current = 0;
   }
 
   function hasStarted(): boolean {
@@ -140,17 +154,17 @@ function Board() {
     }
   }
 
-  function queueRemoveLife() {
-    if (queueRemoveLifeTimerRef.current) {
-      clearTimeout(queueRemoveLifeTimerRef.current);
+  function delayRemoveLife() {
+    if (delayRemoveLifeTimerRef.current) {
+      clearTimeout(delayRemoveLifeTimerRef.current);
     }
 
-    queueRemoveLifeTimerRef.current = setTimeout(
+    delayRemoveLifeTimerRef.current = setTimeout(
       () => setLives(prev => prev - 1),
       NEW_LIFE_DELAY
     );
 
-    sfxNewLife.play();
+    sfxNewLifeRef.current.play();
   }
 
   useEffect(() => {
@@ -159,300 +173,323 @@ function Board() {
         setGameState(EGameState.ENDED);
       } else if (lives < STARTING_LIVES) {
         initializeNewBoard();
-        queueLoadNextPiece(getLevelData(score).speed);
+        delayLoadNextPiece(getLevelData(score).speed);
       }
     }
   }, [lives]);
 
-  function queueLoadNextPiece(delay: number) {
+
+  //
+  // main methods
+  //
+
+  function delayLoadNextPiece(delay: number) {
     // set next piece position immediately to allow movement before making new piece
     setPieceCol(START_COL);
     setPieceRow(START_ROW);
 
-    if (queueLoadNextPieceTimerRef.current) {
-      clearTimeout(queueLoadNextPieceTimerRef.current);
+    if (delayLoadNextPieceTimerRef.current) {
+      clearTimeout(delayLoadNextPieceTimerRef.current);
     }
 
-    queueLoadNextPieceTimerRef.current = setTimeout(
-      () => setLoadNextPiece(true),
+    delayLoadNextPieceTimerRef.current = setTimeout(
+      () => {
+        setCallLoadNextPiece(true);
+        delayLoadNextPieceTimerRef.current = 0;
+      },
       delay
     );
   };
 
   useEffect(() => {
-    const performLoadNextPiece = () => {
-      setMatchChain([]);
+    if (callLoadNextPiece) {
+      setCallLoadNextPiece(false);
+      loadNextPiece();
+    }
+  }, [callLoadNextPiece]);
 
-      const newPiece = nextPiece.length === 0
-        ? generateNewPiece(score, pieceCol)
-        : nextPiece;
+  function loadNextPiece() {
+    // REMINDER: setPieceCol(START_COL) + setPieceRow(START_ROW) needs to be called before this
 
-      // check if the active piece column can fit new piece
-      if (grid[pieceCol].length > pieceRow) {
-        queueRemoveLife();
-      }
-      else {
-        setPiece(newPiece);
-
-        const newNextPiece = generateNewPiece(score, START_COL);
-        if (newNextPiece[2].type === ECellType.JEWELBOX) {
-          sfxJewelboxAlert.play();
-        }
-        setNextPiece(newNextPiece);
-
-        queueMovePieceDown();
-      }
+    if (gameState !== EGameState.STARTED) {
+      return;
     }
 
-    if (loadNextPiece) {
-      setLoadNextPiece(false);
-      if (gameState === EGameState.STARTED) {
-        performLoadNextPiece();
+    setMatchChain(() => []);
+
+    const newPiece = nextPiece.length === 0
+      ? generateNewPiece(score, pieceCol)
+      : nextPiece;
+
+    // check if the active piece column can fit new piece
+    if (grid[pieceCol].length > pieceRow) {
+      delayRemoveLife();
+    }
+    else {
+      setPiece(() => newPiece);
+      delayMovePieceDown();
+
+      const newNextPiece = generateNewPiece(score, START_COL);
+      if (newNextPiece.some(b => b.jewel.type === EJewelType.JEWELBOX)) {
+        sfxJewelboxAlertRef.current.play();
       }
+
+      setNextPiece(() => newNextPiece);
+    }
+  }
+
+  function delayMovePieceDown() {
+    if (delayMovePieceDownTimerRef.current) {
+      clearTimeout(delayMovePieceDownTimerRef.current);
     }
 
-  }, [loadNextPiece]);
-
-  function queueMovePieceDown() {
-    if (queueMovePieceDownTimerRef.current) {
-      clearTimeout(queueMovePieceDownTimerRef.current);
-    }
-
-    queueMovePieceDownTimerRef.current = setTimeout(
-      () => setMovePieceDown(true),
+    delayMovePieceDownTimerRef.current = setTimeout(
+      () => {
+        setCallMovePieceDown(true);
+        delayMovePieceDownTimerRef.current = 0;
+      },
       getLevelData(score).speed
     );
   }
 
   useEffect(() => {
-    const performMovePieceDown = () => {
+    if (callMovePieceDown) {
+      setCallMovePieceDown(false);
+      movePieceDown();
+    }
+  }, [callMovePieceDown])
 
-      setPieceRow(prev => {
-        if (prev === grid[pieceCol].length) {
-          const newGrid = [...grid];
+  function movePieceDown() {
+    if (piece.length === 0) {
+      return;
+    }
 
-          piece.forEach((c) => newGrid[pieceCol].push(c));
+    setPieceRow(prev => {
+      if (prev === grid[pieceCol].length) {
+        const newGrid = [...grid];
 
-          newGrid[pieceCol].forEach((c, row) => {
-            if (c.row !== row) {
-              console.error(">>> UNALIGNED COL DATA!!! (1)", pieceCol, grid)
-            }
-          });
+        piece.forEach((b) => newGrid[pieceCol].push(b));
+        newGrid[pieceCol].forEach((b, row) => {
+          if (b.row !== row) {
+            console.error(">>> UNALIGNED COL DATA!!! (1)", pieceCol, grid)
+          }
+        });
 
-          setPiece([]);
-          setGrid(newGrid);
-          setEvaluateGrid(true);
+        setPiece([]);
+        setGrid(newGrid);
+        setCallEvaluateGrid(true);
 
-          return prev;
-        }
-
-        queueMovePieceDown();
-
-        return prev - 1;
-      });
-    };
-
-    if (movePieceDown) {
-      setMovePieceDown(false);
-      if (piece.length > 0) {
-        performMovePieceDown();
+        return prev;
       }
-    }
-  }, [movePieceDown]);
 
-  function queueEvaluateGrid() {
-    if (queueEvaluateGridTimerRef.current) {
-      clearTimeout(queueEvaluateGridTimerRef.current);
+      delayMovePieceDown();
+
+      return prev - 1;
+    });
+  };
+
+  function delayEvaluateGrid() {
+    if (delayEvaluateGridTimerRef.current) {
+      clearTimeout(delayEvaluateGridTimerRef.current);
     }
 
-    queueEvaluateGridTimerRef.current = setTimeout(
-      () => setEvaluateGrid(true),
+    delayEvaluateGridTimerRef.current = setTimeout(
+      () => {
+        setCallEvaluateGrid(true);
+        delayEvaluateGridTimerRef.current = 0;
+      },
       MATCH_DELAY
     );
   }
 
   useEffect(() => {
-    const performEvaluateGrid = () => {
-      let updateGrid = false;
+    if (callEvaluateGrid) {
+      setCallEvaluateGrid(false);
+      evaluateGrid();
+    }
+  }, [callEvaluateGrid])
 
-      // remove MATCHED cells
-      const deleteCells: CellData[] = [];
-      grid.forEach((colCells) => {
-        colCells.forEach((cell) => {
-          if (cell.state === ECellState.MATCHED) {
-            deleteCells.push(cell);
-            updateGrid = true;
-          }
-        });
+  function evaluateGrid() {
+    let updateGrid = false;
+
+    // remove MATCHED boxes
+    const deleteBoxes: BoxData[] = [];
+    grid.forEach((colBoxes) => {
+      colBoxes.forEach(b => {
+        if (b.jewel.state === EJewelState.MATCHED) {
+          deleteBoxes.push(b);
+          updateGrid = true;
+        }
       });
+    });
 
-      const dirtyColRows: number[] = Array.from({ length: COLS }, () => -1);
-      for (let i = deleteCells.length - 1; i >= 0; i--) {
-        dirtyColRows[deleteCells[i].col] = deleteCells[i].row;
-        grid[deleteCells[i].col].splice(deleteCells[i].row, 1);
-      };
-
-      // move cells above down to fill in space and mark as dirty (re-evaluated on next cycle)
-      for (let col in dirtyColRows) {
-        if (dirtyColRows[col] >= 0) {
-          for (let row = dirtyColRows[col]; row < grid[col].length; row++) {
-            grid[col][row].row = row;
-            grid[col][row].state = ECellState.DIRTY;
-          }
-        }
-      }
-
-      grid.forEach((colCells) => {
-        colCells.forEach((c, row) => {
-          if (c.row !== row) {
-            console.error(">>> UNALIGNED COL DATA!!! (2)", pieceCol, grid)
-          }
-        });
-      });
-
-      // don't match on this cycle if we just deleted (wait until next cycle)
-      if (!updateGrid) {
-        // change cells to MATCHED, if matched with DIRTY cells
-        const matchedCells: CellData[] = [];
-        let jewelboxMatchType: ECellType = ECellType.JEWELBOX;
-
-        grid.forEach((colCells) => {
-          colCells.forEach((cell) => {
-
-            if (cell.state === ECellState.DIRTY) {
-              let matched = false;
-              
-              if (cell.type === ECellType.JEWELBOX && !DEBUG_COLORS) {
-                matched = true;
-                
-                if (cell.row > 0) {
-                  const matchType = grid[cell.col][cell.row - 1].type;
-                  if (matchType !== ECellType.JEWELBOX) {
-                    jewelboxMatchType = grid[cell.col][cell.row - 1].type;
-                  }
-                }
-              }
-
-              let nwse = [cell];
-              getCellMatches(cell, -1, 1, nwse);
-              getCellMatches(cell, 1, -1, nwse);
-              if (nwse.length >= MATCH_SIZE) {
-                matchedCells.push.apply(matchedCells, nwse);
-                updateGrid = true;
-                matched = true;
-              }
-
-              let ns = [cell];
-              getCellMatches(cell, 0, 1, ns);
-              getCellMatches(cell, 0, -1, ns);
-              if (ns.length >= MATCH_SIZE) {
-                matchedCells.push.apply(matchedCells, ns);
-                updateGrid = true;
-                matched = true;
-              }
-
-              let nesw = [cell];
-              getCellMatches(cell, 1, 1, nesw);
-              getCellMatches(cell, -1, -1, nesw);
-              if (nesw.length >= MATCH_SIZE) {
-                matchedCells.push.apply(matchedCells, nesw);
-                updateGrid = true;
-                matched = true;
-              }
-
-              let ew = [cell];
-              getCellMatches(cell, -1, 0, ew);
-              getCellMatches(cell, 1, 0, ew);
-              if (ew.length >= MATCH_SIZE) {
-                matchedCells.push.apply(matchedCells, ew);
-                updateGrid = true;
-                matched = true;
-              }
-
-              if (!matched) {
-                cell.state = ECellState.CLEAN;
-              }
-            };
-          });
-        });
-
-        // if the jewelbox piece touched another type, mark all types as MATCHED
-        if (jewelboxMatchType != ECellType.JEWELBOX) {
-          grid.forEach(colCells => colCells.forEach(cell => {
-            if (cell.type === jewelboxMatchType) {
-              matchedCells.push(cell);
-            }
-          }));
-        }
-
-        if (matchedCells.length > 0) {
-          let matchScore = 0;
-          let matchedRare = false;
-          matchedCells.forEach(c => {
-            if (c.state !== ECellState.MATCHED) {
-              c.state = ECellState.MATCHED;
-              matchScore += getCellScore(c.type) * (matchChain.length + 1);
-              if (isRare(c.type)) {
-                matchedRare = true;
-              }
-            }
-          });
-
-          setMatchChain([...matchChain, matchScore]);
-          setScore(prev => prev + matchScore);
-
-          
-          if (matchedRare) {
-            sfxMatchRare.play();
-          }
-          else {
-            const chimes = [sfxMatch1, sfxMatch2, sfxMatch3, sfxMatch4, sfxMatch5, sfxMatch6];
-            const index = Math.min(matchChain.length, chimes.length - 1);
-            chimes[index].play();
-          }
-        }
-      }
-
-      if (updateGrid) {
-        setGrid([...grid]);
-        queueEvaluateGrid();
-      }
-      else {
-        // check if any column is above capacity
-        if (grid.some(colCells => colCells.length >= ROWS)) {
-          queueRemoveLife();
-        }
-        else {
-          let speed = getLevelData(score).speed;
-          if (matchChain.length > 0) {
-            speed = speed / 2;
-          }
-
-          queueLoadNextPiece(speed);
-        }
-      }
+    const dirtyColRows: number[] = Array.from({ length: COLS }, () => -1);
+    for (let i = deleteBoxes.length - 1; i >= 0; i--) {
+      dirtyColRows[deleteBoxes[i].col] = deleteBoxes[i].row;
+      grid[deleteBoxes[i].col].splice(deleteBoxes[i].row, 1);
     };
 
-    if (evaluateGrid) {
-      setEvaluateGrid(false);
-      performEvaluateGrid();
-    }
-  }, [evaluateGrid])
-
-  function getCellMatches(cell: CellData, offsetX: number, offsetY: number, matchingCells: CellData[]) {
-    const matchCol = cell.col + offsetX;
-    const matchRow = cell.row + offsetY;
-    if (matchCol < 0 || matchCol >= COLS || matchRow < 0 || matchRow >= ROWS || matchRow >= grid[matchCol].length) {
-      return matchingCells;
+    // move boxes above down to fill in space and mark as DIRTY (re-evaluated on next cycle)
+    for (let col in dirtyColRows) {
+      if (dirtyColRows[col] >= 0) {
+        for (let row = dirtyColRows[col]; row < grid[col].length; row++) {
+          grid[col][row].row = row;
+          grid[col][row].jewel.state = EJewelState.DIRTY;
+        }
+      }
     }
 
-    const matchCell = grid[matchCol][matchRow];
-    if (matchCell.type == cell.type) {
-      matchingCells.push(matchCell);
-      return getCellMatches(matchCell, offsetX, offsetY, matchingCells);
+    grid.forEach((colBoxes) => {
+      colBoxes.forEach((b, row) => {
+        if (b.row !== row) {
+          console.error(">>> UNALIGNED COL DATA!!! (2)", pieceCol, grid)
+        }
+      });
+    });
+
+    // don't match on this cycle if we just deleted (wait until next cycle)
+    if (!updateGrid) {
+      // change boxes to MATCHED, if matched with DIRTY boxes
+      const matchedBoxes: BoxData[] = [];
+      let jewelboxMatchType: EJewelType = EJewelType.JEWELBOX;
+
+      grid.forEach((colBoxes) => {
+        colBoxes.forEach(b => {
+
+          if (b.jewel.state === EJewelState.DIRTY) {
+            let matched = false;
+
+            if (b.jewel.type === EJewelType.JEWELBOX && !DEBUG_COLORS) {
+              matched = true;
+
+              if (b.row > 0) {
+                const matchType = grid[b.col][b.row - 1].jewel.type;
+                if (matchType !== EJewelType.JEWELBOX) {
+                  jewelboxMatchType = grid[b.col][b.row - 1].jewel.type;
+                }
+              }
+            }
+
+            let nwse = [b];
+            getJewelMatches(b, -1, 1, nwse);
+            getJewelMatches(b, 1, -1, nwse);
+            if (nwse.length >= MATCH_SIZE) {
+              matchedBoxes.push.apply(matchedBoxes, nwse);
+              updateGrid = true;
+              matched = true;
+            }
+
+            let ns = [b];
+            getJewelMatches(b, 0, 1, ns);
+            getJewelMatches(b, 0, -1, ns);
+            if (ns.length >= MATCH_SIZE) {
+              matchedBoxes.push.apply(matchedBoxes, ns);
+              updateGrid = true;
+              matched = true;
+            }
+
+            let nesw = [b];
+            getJewelMatches(b, 1, 1, nesw);
+            getJewelMatches(b, -1, -1, nesw);
+            if (nesw.length >= MATCH_SIZE) {
+              matchedBoxes.push.apply(matchedBoxes, nesw);
+              updateGrid = true;
+              matched = true;
+            }
+
+            let ew = [b];
+            getJewelMatches(b, -1, 0, ew);
+            getJewelMatches(b, 1, 0, ew);
+            if (ew.length >= MATCH_SIZE) {
+              matchedBoxes.push.apply(matchedBoxes, ew);
+              updateGrid = true;
+              matched = true;
+            }
+
+            if (!matched) {
+              b.jewel.state = EJewelState.CLEAN;
+            }
+          };
+        });
+      });
+
+      // if the jewelbox piece touched another type, mark all types as MATCHED
+      if (jewelboxMatchType != EJewelType.JEWELBOX) {
+        grid.forEach(colBoxes => colBoxes.forEach(b => {
+          if (b.jewel.type === jewelboxMatchType) {
+            matchedBoxes.push(b);
+          }
+        }));
+      }
+
+      if (matchedBoxes.length > 0) {
+        let matchScore = 0;
+        let matchedRare = false;
+        matchedBoxes.forEach(b => {
+          if (b.jewel.state !== EJewelState.MATCHED) {
+            b.jewel.state = EJewelState.MATCHED;
+            matchScore += getJewelValue(b.jewel.type) * (matchChain.length + 1);
+            if (isRareJewel(b.jewel.type)) {
+              matchedRare = true;
+            }
+          }
+        });
+
+        setMatchChain([...matchChain, matchScore]);
+        setScore(prev => prev + matchScore);
+
+        if (matchedRare) {
+          sfxMatchRareRef.current.play();
+        }
+        else {
+          const chimes = [
+            sfxMatch1Ref.current,
+            sfxMatch2Ref.current,
+            sfxMatch3Ref.current,
+            sfxMatch4Ref.current,
+            sfxMatch5Ref.current,
+            sfxMatch6Ref.current
+          ];
+          const index = Math.min(matchChain.length, chimes.length - 1);
+          chimes[index].play();
+        }
+      }
+    }
+
+    if (updateGrid) {
+      setGrid([...grid]);
+      delayEvaluateGrid();
     }
     else {
-      return matchingCells;
+      // check if any column is above capacity
+      if (grid.some(colJewels => colJewels.length > ROWS)) {
+        delayRemoveLife();
+      } 
+      else {
+        let speed = getLevelData(score).speed;
+        if (matchChain.length > 0) {
+          speed = speed / 2;
+        }
+
+        delayLoadNextPiece(speed);
+      }
+    }
+  };
+
+  function getJewelMatches(box: BoxData, offsetX: number, offsetY: number, matchingBoxes: BoxData[]) {
+    const matchCol = box.col + offsetX;
+    const matchRow = box.row + offsetY;
+    if (matchCol < 0 || matchCol >= COLS || matchRow < 0 || matchRow >= ROWS || matchRow >= grid[matchCol].length) {
+      return matchingBoxes;
+    }
+
+    const matchBox = grid[matchCol][matchRow];
+    if (matchBox.jewel.type == box.jewel.type) {
+      matchingBoxes.push(matchBox);
+      return getJewelMatches(matchBox, offsetX, offsetY, matchingBoxes);
+    }
+    else {
+      return matchingBoxes;
     }
   }
 
@@ -494,7 +531,7 @@ function Board() {
       
       case "ArrowDown":
         if (piece.length) {
-          setMovePieceDown(true);
+          movePieceDown();
         }
         break
 
@@ -514,25 +551,25 @@ function Board() {
   //
 
   function renderNextPiece(): React.ReactElement[] {
-    return nextPiece.map((c, row) => {
-      return <Cell key={c.id} cell={{...c, row: row, col: 0} } rowCount={PIECE_SIZE}/>
+    return nextPiece.map((b, row) => {
+      return <Box key={b.id} box={{...b, row: row, col: 0} } rowCount={PIECE_SIZE}/>
     });
   }
   
   function renderGrid(): React.ReactElement[] {
-    const pieceCells = piece.map((c, row) => {
-      c.row = pieceRow + row;
-      c.col = pieceCol;
-      return <Cell key={c.id} cell={c} rowCount={ROWS}/>
+    const pieceBoxes = piece.map((b, row) => {
+      b.row = pieceRow + row;
+      b.col = pieceCol;
+      return <Box key={b.id} box={b} rowCount={ROWS}/>
     });
 
-    const gridCells = grid.map((colCells) => {
-      return colCells.map((c) => {
-        return <Cell key={c.id} cell={c} rowCount={ROWS}/>
+    const gridBoxes = grid.map((colBoxes) => {
+      return colBoxes.map(b => {
+        return <Box key={b.id} box={b} rowCount={ROWS}/>
       });
     });
 
-    return gridCells.flat().concat(pieceCells);
+    return gridBoxes.flat().concat(pieceBoxes);
   }
 
   function renderLives(): React.ReactElement[] {
@@ -585,7 +622,7 @@ function Board() {
 
   function renderImage(): React.ReactNode {
     return [EGameState.ENDED, EGameState.NONE].includes(gameState)
-      && false && (
+      && (
         <div className="absolute">
           <img
             className="border-shadow"
@@ -601,9 +638,11 @@ function Board() {
   return (
     <>
       <div className="flex flex-row gap-8">
-        <div className="flex flex-col items-end gap-8 mt-8 w-[120px] h-[calc(full - 8rem)]">
+        <div className="flex flex-col items-end gap-8 mt-8 w-[400px] h-[calc(full - 8rem)]">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-amber-400">LIVES</span>
+            <div className="text-lg font-semibold text-amber-400">
+              LIVES
+            </div>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
@@ -615,24 +654,32 @@ function Board() {
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-amber-400">LEVEL</span>
+            <div className="text-lg font-semibold text-amber-400">
+              LEVEL
+            </div>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex justify-center w-[76px]">
-                    <span className="text-white text-xl font-semibold">{getLevelData(score).level}</span>
+                    <div className="text-white text-xl font-semibold">
+                      {getLevelData(score).level}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-amber-400">SCORE</span>
+            <div className="text-lg font-semibold text-amber-400">
+              SCORE
+            </div>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
                   <div className="flex justify-center w-[76px]">
-                    <span className="text-white text-xl font-semibold">{score}</span>
+                    <div className="text-white text-xl font-semibold">
+                      {score}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -669,9 +716,11 @@ function Board() {
           </div>
         </div>
 
-        <div className="flex flex-col items-start mt-8 w-[120px] h-[calc(full - 8rem)]">
+        <div className="flex flex-col items-start mt-8 gap-8 w-[400px] h-[calc(full - 8rem)]">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold text-amber-400">NEXT</span>
+            <div className="text-lg font-semibold text-amber-400">
+              NEXT
+            </div>
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-4">
@@ -679,6 +728,70 @@ function Board() {
                     {renderNextPiece()}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-start justify-end gap-4 h-full">
+            {
+              getLevelData(score).level > 9
+              &&
+              <div>
+                <div className="text-lg font-semibold text-amber-400">LUX</div>
+                <div className="relative flex gap-2 items-center">
+                  <Jewel jewel={{ type: EJewelType.LUX_1, state: EJewelState.CLEAN }} />
+                  <div className="text-sm font-semibold text-white">= 600</div>
+                </div>
+              </div>
+            }
+
+            <div>
+              <div className="text-lg font-semibold text-amber-400">RARE</div>
+              <div className="relative flex gap-2 items-center">
+                <Jewel jewel={{ type: EJewelType.RARE_1, state: EJewelState.CLEAN }} />
+                {
+                  getLevelData(score).level > 7
+                  &&
+                  <Jewel jewel={{ type: EJewelType.RARE_2, state: EJewelState.CLEAN }} />
+                }
+                <div className="text-sm font-semibold text-white">= 300</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-lg font-semibold text-amber-400">VALUE</div>
+              <div className="relative flex gap-2 items-center">
+                <Jewel jewel={{ type: EJewelType.VALUE_1, state: EJewelState.CLEAN }} />
+                {
+                  getLevelData(score).level > 1
+                  &&
+                  <Jewel jewel={{ type: EJewelType.VALUE_2, state: EJewelState.CLEAN }} />
+                }
+                {
+                  getLevelData(score).level > 5
+                  &&
+                  <Jewel jewel={{ type: EJewelType.VALUE_3, state: EJewelState.CLEAN }} />
+                }
+                <div className="text-sm font-semibold text-white">= 100</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-lg font-semibold text-amber-400">COMMON</div>
+              <div className="relative flex gap-2 items-center">
+                <Jewel jewel={{ type: EJewelType.COMMON_1, state: EJewelState.CLEAN }} />
+                <Jewel jewel={{ type: EJewelType.COMMON_2, state: EJewelState.CLEAN }} />
+                <Jewel jewel={{ type: EJewelType.COMMON_3, state: EJewelState.CLEAN }} />
+                {
+                  getLevelData(score).level <= 5
+                  &&
+                  <Jewel jewel={{ type: EJewelType.COMMON_4, state: EJewelState.CLEAN }} />
+                }
+                {
+                  getLevelData(score).level > 3
+                  &&
+                  <Jewel jewel={{ type: EJewelType.COMMON_5, state: EJewelState.CLEAN }} />
+                }
+                <div className="text-sm font-semibold text-white"> = 50</div>
               </div>
             </div>
           </div>
@@ -713,9 +826,9 @@ function Board() {
           }
         >
           {
-            (gameState === EGameState.STARTED)
-              ? "PAUSE"
-              : "RESUME"
+            (gameState === EGameState.PAUSED)
+              ? "RESUME"
+              : "PAUSE"
           }
         </button>
       </div>

@@ -1,7 +1,7 @@
-import { ECellType } from "./constants";
+import { EJewelType } from "./constants";
 
 export type LevelData = {
   level: number;
   speed: number;
-  cellFrequency: { [key in ECellType]: number }
+  jewelFrequency: { [key in EJewelType]: number }
 };
