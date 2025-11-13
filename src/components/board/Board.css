@@ -1,4 +1,4 @@
-@keyframes matchScoreChainText {
+@keyframes matchChainScore {
   0% {
     opacity: 100%;
     transform: translateY(40px);
@@ -10,10 +10,34 @@
   }
 }
 
-.match-score-change-animation {
-  animation-name: matchScoreChainText;
+.match-chain-score-animation {
+  animation-name: matchChainScore;
   /* Link to the keyframes */
   animation-duration: 3s;
+  /* How long the animation takes */
+  animation-timing-function: ease-out;
+  /* Controls the speed curve */
+  animation-fill-mode: forwards;
+  /* Keeps the final state after animation */
+  animation-iteration-count: 1;
+}
+
+@keyframes matchChainMultiplier {
+  0% {
+    opacity: 20%;
+    transform: translateY(40px);
+  }
+
+  100% {
+    opacity: 0%;
+    transform: translateY(-40px);
+  }
+}
+
+.match-chain-multiplier-animation {
+  animation-name: matchChainMultiplier;
+  /* Link to the keyframes */
+  animation-duration: 2s;
   /* How long the animation takes */
   animation-timing-function: ease-out;
   /* Controls the speed curve */

@@ -3,8 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
-import matchSound1 from "../../resources/sounds/chime.mp3";
-import matchSound2 from "../../resources/sounds/ping2.mp3";
+import matchChime1 from "../../resources/sounds/chime_1.mp3";
+import matchChime2 from "../../resources/sounds/chime_2.mp3";
+import matchChime3 from "../../resources/sounds/chime_3.mp3";
+import matchChime4 from "../../resources/sounds/chime_4.mp3";
+import matchChime5 from "../../resources/sounds/chime_5.mp3";
+import matchChime6 from "../../resources/sounds/chime_6.mp3";
+import matchChimeRare from "../../resources/sounds/chime_rare.mp3";
 import jewelboxAlert from "../../resources/sounds/jewelbox_alert.mp3";
 import newLifeSound from "../../resources/sounds/life.mp3";
 import jewelboxImage from "../../resources/images/jewelbox.png";
@@ -22,8 +27,13 @@ function Board() {
   //
 
   const [music] = useState(new Audio(jewelboxMusic));
-  const [sfxMatch1] = useState(new Audio(matchSound1));
-  const [sfxMatch2] = useState(new Audio(matchSound2));
+  const [sfxMatch1] = useState(new Audio(matchChime1));
+  const [sfxMatch2] = useState(new Audio(matchChime2));
+  const [sfxMatch3] = useState(new Audio(matchChime3));
+  const [sfxMatch4] = useState(new Audio(matchChime4));
+  const [sfxMatch5] = useState(new Audio(matchChime5));
+  const [sfxMatch6] = useState(new Audio(matchChime6));
+  const [sfxMatchRare] = useState(new Audio(matchChimeRare));
   const [sfxJewelboxAlert] = useState(new Audio(jewelboxAlert));
   const [sfxNewLife] = useState(new Audio(newLifeSound));
   const [gameState, setGameState] = useState(EGameState.NONE);
@@ -38,7 +48,7 @@ function Board() {
   const [evaluateGrid, setEvaluateGrid] = useState(false);
   const [lives, setLives] = useState(0);
   const [score, setScore] = useState(0);
-  const [matchScoreChain, setMatchScoreChain] = useState<number[]>([]);
+  const [matchChain, setMatchChain] = useState<number[]>([]);
 
   const queueLoadNextPieceTimerRef = useRef(0);
   const queueMovePieceDownTimerRef = useRef(0);
@@ -171,7 +181,7 @@ function Board() {
 
   useEffect(() => {
     const performLoadNextPiece = () => {
-      setMatchScoreChain([]);
+      setMatchChain([]);
 
       const newPiece = nextPiece.length === 0
         ? generateNewPiece(score, pieceCol)
@@ -381,21 +391,24 @@ function Board() {
           matchedCells.forEach(c => {
             if (c.state !== ECellState.MATCHED) {
               c.state = ECellState.MATCHED;
-              matchScore += getCellScore(c.type) * (matchScoreChain.length + 1);
+              matchScore += getCellScore(c.type) * (matchChain.length + 1);
               if (isRare(c.type)) {
                 matchedRare = true;
               }
             }
           });
 
-          setMatchScoreChain([...matchScoreChain, matchScore]);
+          setMatchChain([...matchChain, matchScore]);
           setScore(prev => prev + matchScore);
 
+          
           if (matchedRare) {
-            sfxMatch2.play();
+            sfxMatchRare.play();
           }
           else {
-            sfxMatch1.play();
+            const chimes = [sfxMatch1, sfxMatch2, sfxMatch3, sfxMatch4, sfxMatch5, sfxMatch6];
+            const index = Math.min(matchChain.length, chimes.length - 1);
+            chimes[index].play();
           }
         }
       }
@@ -411,7 +424,7 @@ function Board() {
         }
         else {
           let speed = getLevelData(score).speed;
-          if (matchScoreChain.length > 0) {
+          if (matchChain.length > 0) {
             speed = speed / 2;
           }
 
@@ -532,17 +545,17 @@ function Board() {
     return lifeDots;
   };
 
-  function renderMatchScoreChain() {
+  function renderMatchChainScore() {
     const textClassNames = [
       "text-[16px]", "text-[20px]", "text-[26px]", "text-[34px]", "text-[44px]",
       "text-[56px]", "text-[70px]", "text-[86px]", "text-[104px]", "text-[124px]",
     ]
     
-    return matchScoreChain.map((score, i) => {
+    return matchChain.map((score, i) => {
       return (
         <div key={i}
           className={`absolute
-            ${textClassNames[i]} font-extrabold text-white match-score-change-animation`
+            ${textClassNames[i]} font-extrabold text-white match-chain-score-animation`
           }
         >
           { score }
@@ -550,6 +563,40 @@ function Board() {
       )
     })
   };
+
+  function renderMatchChainMultiplier(): React.ReactNode[] {
+    if (matchChain.length <= 1) {
+      return [];
+    }
+
+    const multipliers = [];
+    for (let i = 1; i < matchChain.length; i++) {
+      multipliers.push(
+        <div key={i} className="absolute">
+          <div className="border-shadow match-chain-multiplier-animation text-gray-900 text-[128px] font-bold">
+            x{i+1}
+          </div>
+        </div>
+      );
+    }
+
+    return multipliers;
+  }
+
+  function renderImage(): React.ReactNode {
+    return [EGameState.ENDED, EGameState.NONE].includes(gameState)
+      && false && (
+        <div className="absolute">
+          <img
+            className="border-shadow"
+            src={jewelboxImage}
+            alt="jewelbox"
+            height={UNIT * COLS / 2}
+            width={UNIT * COLS / 2}
+          />
+        </div>
+      );
+  }
 
   return (
     <>
@@ -593,7 +640,7 @@ function Board() {
           </div>
           <div className="flex flex-col items-center">
             <div className="w-[100px] p-2 flex flex-col items-center">
-              {renderMatchScoreChain()}
+              {renderMatchChainScore()}
             </div>
           </div>
         </div>
@@ -614,22 +661,9 @@ function Board() {
                   }
                 }}
               >
-                {
-                  renderGrid()
-                }
-                {
-                  [EGameState.ENDED, EGameState.NONE].includes(gameState)
-                  &&
-                  <div className="absolute">
-                    <img
-                      className="border-shadow"
-                      src={jewelboxImage}
-                      alt="jewelbox"
-                      height={UNIT*COLS/2}
-                      width={UNIT*COLS/2}
-                    />
-                  </div>
-                }
+                { renderGrid() }
+                { renderMatchChainMultiplier() }
+                { renderImage() }
               </div>
             </div>
           </div>
@@ -678,7 +712,11 @@ function Board() {
             )
           }
         >
-          PAUSE
+          {
+            (gameState === EGameState.STARTED)
+              ? "PAUSE"
+              : "RESUME"
+          }
         </button>
       </div>
     </>
