@@ -1,4 +1,4 @@
-import { DEBUG_LEVELS as DEBUG_SCORE, EJewelState, EJewelType } from "../../types/constants";
+import { DEBUG, EJewelState, EJewelType } from "../../types/constants";
 
 export function getJewelColor(jewelType: EJewelType, jewelState: EJewelState) {
   switch(jewelType) {
@@ -22,7 +22,7 @@ export function getJewelColor(jewelType: EJewelType, jewelState: EJewelState) {
       return jewelState === EJewelState.MATCHED ? "bg-indigo-300" : "bg-gradient-to-tr from-teal-200 to-violet-400";
     case EJewelType.RARE_2:
       return jewelState === EJewelState.MATCHED ? "bg-red-300" : "bg-gradient-to-tr from-pink-100 to-orange-500";
-    case EJewelType.LUX_1:
+    case EJewelType.LUXE_1:
       return jewelState === EJewelState.MATCHED ? "bg-lime-100" : "bg-gradient-to-tr from-red-200 to-emerald-300"
     case EJewelType.JEWELBOX:
       return jewelState === EJewelState.MATCHED ? "bg-gray-400" : "bg-gradient-to-br from-yellow-500 via-teal-500 to-pink-400";
@@ -30,7 +30,7 @@ export function getJewelColor(jewelType: EJewelType, jewelState: EJewelState) {
 }
 
 export function isRareJewel(type: EJewelType): boolean {
-  return [EJewelType.RARE_1, EJewelType.RARE_2, EJewelType.LUX_1].includes(type);
+  return [EJewelType.RARE_1, EJewelType.RARE_2, EJewelType.LUXE_1].includes(type);
 }
 
 export function getJewelValue(type: EJewelType): number {
@@ -40,16 +40,16 @@ export function getJewelValue(type: EJewelType): number {
     case EJewelType.COMMON_3:
     case EJewelType.COMMON_4:
     case EJewelType.COMMON_5:
-      return 50 * (DEBUG_SCORE ? 10 : 1);
+      return 50 * (DEBUG.LEVELS ? 10 : 1);
     case EJewelType.VALUE_1:
     case EJewelType.VALUE_2:
     case EJewelType.VALUE_3:
-      return 100 * (DEBUG_SCORE ? 10 : 1);
+      return 100 * (DEBUG.LEVELS ? 10 : 1);
     case EJewelType.RARE_1:
     case EJewelType.RARE_2:
-      return 300 * (DEBUG_SCORE ? 10 : 1);
-    case EJewelType.LUX_1:
-      return 600 * (DEBUG_SCORE ? 10 : 1);
+      return 300 * (DEBUG.LEVELS ? 10 : 1);
+    case EJewelType.LUXE_1:
+      return 600 * (DEBUG.LEVELS ? 10 : 1);
     case EJewelType.JEWELBOX:
       return 0;
   }

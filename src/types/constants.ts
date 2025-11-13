@@ -1,16 +1,19 @@
-export const DEBUG = false;
-export const DEBUG_COLORS = false;
-export const DEBUG_LEVELS = false;
+export const DEBUG = {
+  COLORS: false,
+  LEVELS: false,
+}
 
-export const UNIT = 40;
-export const ROWS = 15;
-export const COLS = 7;
-export const STARTING_LIVES = 3;
-export const PIECE_SIZE = 3;
-export const MATCH_SIZE = 3;
-export const MATCH_DELAY = 500;
-export const NEW_LIFE_DELAY = 1000;
-export const JEWELBOX_FREQUENCY = 1/100;
+export const SETTINGS = {
+  UNIT: 40,
+  ROWS: 15,
+  COLS: 7,
+  STARTING_LIVES: 3,
+  PIECE_SIZE: 3,
+  MATCH_SIZE: 3,
+  MATCH_DELAY: 500,
+  NEW_LIFE_DELAY: 1000,
+  JEWELBOX_FREQUENCY: 1/100
+}
 
 export enum EGameState {
   NONE,
@@ -37,6 +40,6 @@ export enum EJewelType {
   VALUE_3, // fuchsia
   RARE_1, // teal-violet
   RARE_2, // pink-orange
-  LUX_1, // red-emerald
+  LUXE_1, // red-emerald
   JEWELBOX // WILD
 }

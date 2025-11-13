@@ -15,18 +15,11 @@ import newLifeSound from "../../resources/sounds/life.mp3";
 import jewelboxImage from "../../resources/images/jewelbox.png";
 
 import {
-  COLS,
-  DEBUG_COLORS,
+  DEBUG,
+  SETTINGS,
   EJewelState,
   EJewelType,
   EGameState,
-  MATCH_DELAY,
-  MATCH_SIZE,
-  NEW_LIFE_DELAY,
-  PIECE_SIZE,
-  ROWS,
-  STARTING_LIVES,
-  UNIT
 } from "../../types/constants";
 import Jewel from "../jewel/Jewel";
 import { generateEmptyBoard, generateNewPiece, getLevelData, START_COL, START_ROW } from "./boardHelpers";
@@ -80,7 +73,7 @@ function Board() {
     setPiece([]);
     setNextPiece([]);
 
-    setLives(STARTING_LIVES);
+    setLives(SETTINGS.STARTING_LIVES);
     setScore(0);
   }
 
@@ -144,10 +137,6 @@ function Board() {
     delayRemoveLifeTimerRef.current = 0;
   }
 
-  function hasStarted(): boolean {
-    return [EGameState.STARTED, EGameState.PAUSED].includes(gameState);
-  }
-
   function setBoardFocus() {
     if (boardRef.current) {
       boardRef.current.focus();
@@ -161,7 +150,7 @@ function Board() {
 
     delayRemoveLifeTimerRef.current = setTimeout(
       () => setLives(prev => prev - 1),
-      NEW_LIFE_DELAY
+      SETTINGS.NEW_LIFE_DELAY
     );
 
     sfxNewLifeRef.current.play();
@@ -171,7 +160,7 @@ function Board() {
     if (gameState === EGameState.STARTED) {
       if (lives === 0) {
         setGameState(EGameState.ENDED);
-      } else if (lives < STARTING_LIVES) {
+      } else if (lives < SETTINGS.STARTING_LIVES) {
         initializeNewBoard();
         delayLoadNextPiece(getLevelData(score).speed);
       }
@@ -298,7 +287,7 @@ function Board() {
         setCallEvaluateGrid(true);
         delayEvaluateGridTimerRef.current = 0;
       },
-      MATCH_DELAY
+      SETTINGS.MATCH_DELAY
     );
   }
 
@@ -323,7 +312,7 @@ function Board() {
       });
     });
 
-    const dirtyColRows: number[] = Array.from({ length: COLS }, () => -1);
+    const dirtyColRows: number[] = Array.from({ length: SETTINGS.COLS }, () => -1);
     for (let i = deleteBoxes.length - 1; i >= 0; i--) {
       dirtyColRows[deleteBoxes[i].col] = deleteBoxes[i].row;
       grid[deleteBoxes[i].col].splice(deleteBoxes[i].row, 1);
@@ -359,7 +348,7 @@ function Board() {
           if (b.jewel.state === EJewelState.DIRTY) {
             let matched = false;
 
-            if (b.jewel.type === EJewelType.JEWELBOX && !DEBUG_COLORS) {
+            if (b.jewel.type === EJewelType.JEWELBOX && !DEBUG.COLORS) {
               matched = true;
 
               if (b.row > 0) {
@@ -373,7 +362,7 @@ function Board() {
             let nwse = [b];
             getJewelMatches(b, -1, 1, nwse);
             getJewelMatches(b, 1, -1, nwse);
-            if (nwse.length >= MATCH_SIZE) {
+            if (nwse.length >= SETTINGS.MATCH_SIZE) {
               matchedBoxes.push.apply(matchedBoxes, nwse);
               updateGrid = true;
               matched = true;
@@ -382,7 +371,7 @@ function Board() {
             let ns = [b];
             getJewelMatches(b, 0, 1, ns);
             getJewelMatches(b, 0, -1, ns);
-            if (ns.length >= MATCH_SIZE) {
+            if (ns.length >= SETTINGS.MATCH_SIZE) {
               matchedBoxes.push.apply(matchedBoxes, ns);
               updateGrid = true;
               matched = true;
@@ -391,7 +380,7 @@ function Board() {
             let nesw = [b];
             getJewelMatches(b, 1, 1, nesw);
             getJewelMatches(b, -1, -1, nesw);
-            if (nesw.length >= MATCH_SIZE) {
+            if (nesw.length >= SETTINGS.MATCH_SIZE) {
               matchedBoxes.push.apply(matchedBoxes, nesw);
               updateGrid = true;
               matched = true;
@@ -400,7 +389,7 @@ function Board() {
             let ew = [b];
             getJewelMatches(b, -1, 0, ew);
             getJewelMatches(b, 1, 0, ew);
-            if (ew.length >= MATCH_SIZE) {
+            if (ew.length >= SETTINGS.MATCH_SIZE) {
               matchedBoxes.push.apply(matchedBoxes, ew);
               updateGrid = true;
               matched = true;
@@ -462,7 +451,7 @@ function Board() {
     }
     else {
       // check if any column is above capacity
-      if (grid.some(colJewels => colJewels.length > ROWS)) {
+      if (grid.some(colJewels => colJewels.length > SETTINGS.ROWS)) {
         delayRemoveLife();
       } 
       else {
@@ -479,7 +468,10 @@ function Board() {
   function getJewelMatches(box: BoxData, offsetX: number, offsetY: number, matchingBoxes: BoxData[]) {
     const matchCol = box.col + offsetX;
     const matchRow = box.row + offsetY;
-    if (matchCol < 0 || matchCol >= COLS || matchRow < 0 || matchRow >= ROWS || matchRow >= grid[matchCol].length) {
+    if (matchCol < 0 || matchCol >= SETTINGS.COLS
+      || matchRow < 0 || matchRow >= SETTINGS.ROWS
+      || matchRow >= grid[matchCol].length)
+    {
       return matchingBoxes;
     }
 
@@ -508,7 +500,7 @@ function Board() {
     switch (event.key) {
       case "ArrowRight":
         setPieceCol(prev => 
-          prev < COLS - 1 && grid[prev + 1].length <= pieceRow
+          prev < SETTINGS.COLS - 1 && grid[prev + 1].length <= pieceRow
             ? prev + 1
             : prev
         );
@@ -552,7 +544,7 @@ function Board() {
 
   function renderNextPiece(): React.ReactElement[] {
     return nextPiece.map((b, row) => {
-      return <Box key={b.id} box={{...b, row: row, col: 0} } rowCount={PIECE_SIZE}/>
+      return <Box key={b.id} box={{...b, row: row, col: 0} } rowCount={SETTINGS.PIECE_SIZE}/>
     });
   }
   
@@ -560,12 +552,12 @@ function Board() {
     const pieceBoxes = piece.map((b, row) => {
       b.row = pieceRow + row;
       b.col = pieceCol;
-      return <Box key={b.id} box={b} rowCount={ROWS}/>
+      return <Box key={b.id} box={b} rowCount={SETTINGS.ROWS}/>
     });
 
     const gridBoxes = grid.map((colBoxes) => {
       return colBoxes.map(b => {
-        return <Box key={b.id} box={b} rowCount={ROWS}/>
+        return <Box key={b.id} box={b} rowCount={SETTINGS.ROWS}/>
       });
     });
 
@@ -628,8 +620,8 @@ function Board() {
             className="border-shadow"
             src={jewelboxImage}
             alt="jewelbox"
-            height={UNIT * COLS / 2}
-            width={UNIT * COLS / 2}
+            height={SETTINGS.UNIT * SETTINGS.COLS / 2}
+            width={SETTINGS.UNIT * SETTINGS.COLS / 2}
           />
         </div>
       );
@@ -700,10 +692,16 @@ function Board() {
           >
             <div className="border-2 border-black">
               <div className="relative flex justify-center items-center
-                bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden"
-                style={{ width: `${COLS * UNIT}px`, height: `${ROWS * UNIT}px` }}
+                bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden cursor-pointer"
+                style={{ width: `${SETTINGS.COLS * SETTINGS.UNIT}px`, height: `${SETTINGS.ROWS * SETTINGS.UNIT}px` }}
                 onClick={() => {
-                  if (!hasStarted()) {
+                  if (gameState === EGameState.PAUSED) {
+                    setGameState(EGameState.STARTED);
+                  }
+                  else if (gameState === EGameState.STARTED) {
+                    setGameState(EGameState.PAUSED);
+                  }
+                  else if ([EGameState.ENDED, EGameState.NONE].includes(gameState)) {
                     setGameState(EGameState.STARTING);
                   }
                 }}
@@ -724,7 +722,7 @@ function Board() {
             <div className="border-2 border-amber-400">
               <div className="border-2 border-black">
                 <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-4">
-                  <div className="relative" style={{ width: UNIT, height: UNIT * PIECE_SIZE }}>
+                  <div className="relative" style={{ width: SETTINGS.UNIT, height: SETTINGS.UNIT * SETTINGS.PIECE_SIZE }}>
                     {renderNextPiece()}
                   </div>
                 </div>
@@ -736,9 +734,9 @@ function Board() {
               getLevelData(score).level > 9
               &&
               <div>
-                <div className="text-lg font-semibold text-amber-400">LUX</div>
+                <div className="text-lg font-semibold text-amber-400">LUXE</div>
                 <div className="relative flex gap-2 items-center">
-                  <Jewel jewel={{ type: EJewelType.LUX_1, state: EJewelState.CLEAN }} />
+                  <Jewel jewel={{ type: EJewelType.LUXE_1, state: EJewelState.CLEAN }} />
                   <div className="text-sm font-semibold text-white">= 600</div>
                 </div>
               </div>
@@ -809,7 +807,7 @@ function Board() {
             setGameState(EGameState.STARTING)
           }
         >
-          { hasStarted() ? "RESTART" : "START" }
+          { [EGameState.STARTED, EGameState.PAUSED].includes(gameState) ? "RESTART" : "START" }
         </button>
         <button
           className="bg-gray-700 text-white text-lg
@@ -817,11 +815,11 @@ function Board() {
                     cursor-pointer
                     hover:bg-gray-600
                     active:bg-gray-800"
-          disabled={!hasStarted()}
+          disabled={gameState !== EGameState.STARTED}
           onMouseUp={() => 
-            setGameState(gameState === EGameState.STARTED
-              ? EGameState.PAUSED
-              : EGameState.STARTED
+            setGameState(gameState === EGameState.PAUSED
+              ? EGameState.STARTED
+              : EGameState.PAUSED
             )
           }
         >

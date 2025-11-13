@@ -1,5 +1,5 @@
 import type { JewelData } from "../../types/jewelData";
-import { EJewelType, UNIT } from "../../types/constants";
+import { EJewelType, SETTINGS } from "../../types/constants";
 import { getJewelColor } from "./jewelHelpers";
 import starImage from "../../resources/images/star_overlay.png";
 
@@ -15,7 +15,7 @@ function Jewel({
 
   function renderImage(): React.ReactNode {
     let image;
-    const size = UNIT * 3 / 5;
+    const size = SETTINGS.UNIT * 3 / 5;
     if (jewel.type === EJewelType.JEWELBOX) {
       image = starImage;
     }
@@ -28,13 +28,13 @@ function Jewel({
   return (
     <div
       className={`
-        border border-gray-700 rounded-md box-border
+        border-2 border-gray-700 rounded-md box-border
         flex justify-center items-center
         ${getColorClassName()}`
       }
       style={{
-        width: `${UNIT}px`,
-        height: `${UNIT}px`,
+        width: `${SETTINGS.UNIT}px`,
+        height: `${SETTINGS.UNIT}px`,
       }}
     >
       { renderImage() }
