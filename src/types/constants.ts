@@ -1,10 +1,10 @@
 export const DEBUG = {
   COLORS: false,
-  LEVELS: true,
+  LEVELS: false,
 }
 
 export const SETTINGS = {
-  UNIT: 30,
+  UNIT: 40,
   ROWS: 15,
   COLS: 7,
   STARTING_LIVES: 3,
@@ -39,7 +39,7 @@ export enum EJewelType {
   VALUE_2, // blue
   VALUE_3, // fuchsia
   RARE_1, // teal-violet
-  RARE_2, // pink-orange
+  RARE_2, // violet-orange
   LUXE_1, // red-emerald
   JEWELBOX // WILD
 }

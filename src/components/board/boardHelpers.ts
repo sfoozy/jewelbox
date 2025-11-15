@@ -1,12 +1,19 @@
 import { DEBUG, SETTINGS, EJewelState, EJewelType } from "../../types/constants";
 import type { LevelData } from "../../types/levelData";
 import type { BoxData } from "../../types/boxData";
-import type { JewelData } from "../../types/jewelData";
 
 export const START_COL = Math.floor(SETTINGS.COLS / 2);
 export const START_ROW = SETTINGS.ROWS - SETTINGS.PIECE_SIZE;
 
-export function getRandomJewelType(levelData: LevelData): EJewelType {  
+let debugColorsIndex = 0;
+
+export function getRandomJewelType(levelData: LevelData): EJewelType {
+  if (DEBUG.COLORS) {
+    const jewel = debugColorsIndex % (Object.values(EJewelType).length / 2);
+    debugColorsIndex++;
+    return jewel;
+  }
+
   const choices: string[] = [];
   Object.entries(levelData.jewelFrequency).forEach(([type, freq]: [string, number]) => {
     for (let i = 0; i < freq; i++) {
@@ -49,7 +56,7 @@ export function getLevelData(score: number): LevelData {
   const level = Math.floor(score / 10000);
   const levelData = {
     level: level,
-    speed: Math.max(200 - (level * 50), 200),
+    speed: Math.max(800 - (level * 50), 200),
     jewelFrequency: {
       [EJewelType.COMMON_1]: 400,
       [EJewelType.COMMON_2]: 400,
@@ -81,6 +88,12 @@ export function getLevelData(score: number): LevelData {
 
   freq = Object.values(levelData.jewelFrequency).reduce((total, freq) => total + freq);
   levelData.jewelFrequency[EJewelType.JEWELBOX] = Math.floor(freq * SETTINGS.JEWELBOX_FREQUENCY);
+
+  if (DEBUG.COLORS) {
+    Object.values(EJewelType).forEach((type) => {
+      levelData.jewelFrequency[type as EJewelType] = 1;
+    });
+  }
 
   return levelData;
 }

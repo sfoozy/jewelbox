@@ -5,7 +5,7 @@ export function getJewelColor(jewelType: EJewelType, jewelState: EJewelState) {
     case EJewelType.COMMON_1:
       return jewelState === EJewelState.MATCHED ? "bg-red-300" : "bg-gradient-to-tr from-red-400 to-red-700";
     case EJewelType.COMMON_2:
-      return jewelState === EJewelState.MATCHED ? "bg-amber-400" : "bg-gradient-to-tr from-amber-300 to-amber-600";
+      return jewelState === EJewelState.MATCHED ? "bg-amber-300" : "bg-gradient-to-tr from-amber-300 to-amber-600";
     case EJewelType.COMMON_3:
       return jewelState === EJewelState.MATCHED ? "bg-lime-300" : "bg-gradient-to-tr from-lime-300 to-lime-600";
     case EJewelType.COMMON_4:

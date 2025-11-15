@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
@@ -36,20 +36,21 @@ function Board() {
   // states
   //
 
-  const musicRef = useRef(new Audio(jewelboxMusic));
-  const sfxMatch1Ref = useRef(new Audio(matchChime1));
-  const sfxMatch2Ref = useRef(new Audio(matchChime2));
-  const sfxMatch3Ref = useRef(new Audio(matchChime3));
-  const sfxMatch4Ref = useRef(new Audio(matchChime4));
-  const sfxMatch5Ref = useRef(new Audio(matchChime5));
-  const sfxMatch6Ref = useRef(new Audio(matchChime6));
-  const sfxMatchRareRef = useRef(new Audio(matchChimeRare));
-  const sfxJewelboxAlertRef = useRef(new Audio(jewelboxAlert));
-  const sfxNewLifeRef = useRef(new Audio(newLifeSound));
+  const musicRef = useRef<HTMLAudioElement>(null);
+  const sfxMatch1Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatch2Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatch3Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatch4Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatch5Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatch6Ref = useRef<HTMLAudioElement>(null);
+  const sfxMatchRareRef = useRef<HTMLAudioElement>(null);
+  const sfxJewelboxAlertRef = useRef<HTMLAudioElement>(null);
+  const sfxNewLifeRef = useRef<HTMLAudioElement>(null);
 
   const [gameState, setGameState] = useState(EGameState.NONE);
   const [piece, setPiece] = useState<BoxData[]>([]);
   const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
+  const [transferPieceToGrid, setTransferPieceToGrid] = useState(false);
   const [grid, setGrid] = useState<BoxData[][]>([]);
   const [lives, setLives] = useState(0);
   const [level, setLevel] = useState<LevelData>(startingLevel);
@@ -57,47 +58,46 @@ function Board() {
   const [matchChain, setMatchChain] = useState<number[]>([]);
   const boxId = useRef(0);
 
-  const [callLoadNextPiece, setCallLoadNextPiece] = useState(false);
-  const delayLoadNextPieceTimerRef = useRef(0);
-  const [callMovePieceDown, setCallMovePieceDown] = useState(false);
+  const delayLoadPieceTimerRef = useRef(0);
   const delayMovePieceDownTimerRef = useRef(0);
-  const [callEvaluateGrid, setCallEvaluateGrid] = useState(false);
-  const delayEvaluateGridTimerRef = useRef(0);
+  const delayUpdateGridTimerRef = useRef(0);
   const delayRemoveLifeTimerRef = useRef(0);
 
   const boardRef = useRef<HTMLDivElement>(null);
 
 
   //
-  // effects
+  // intiialize
   //
 
-  function initializeNewGame() {
-    setGrid(generateEmptyBoard());
-    setPiece([]);
-    setNextPiece([]);
+  useEffect(() => {
+    musicRef.current = new Audio(jewelboxMusic);
+    sfxMatch1Ref.current = new Audio(matchChime1);
+    sfxMatch2Ref.current = new Audio(matchChime2);
+    sfxMatch3Ref.current = new Audio(matchChime3);
+    sfxMatch4Ref.current = new Audio(matchChime4);
+    sfxMatch5Ref.current = new Audio(matchChime5);
+    sfxMatch6Ref.current = new Audio(matchChime6);
+    sfxMatchRareRef.current = new Audio(matchChimeRare);
+    sfxJewelboxAlertRef.current = new Audio(jewelboxAlert);
+    sfxNewLifeRef.current = new Audio(newLifeSound);
+  }, []);
 
-    setLives(SETTINGS.STARTING_LIVES);
-    setScore(0);
-  
-    boxId.current = 0;
-  }
 
-  function initializeNewBoard() {
-    setGrid(generateEmptyBoard());
-    setPiece([]);
-  
-    boxId.current = 0;
-  }
+  //
+  // game state
+  //
 
   useEffect(() => {
     if (gameState === EGameState.STARTING) {
       stopTimers();
 
-      musicRef.current.pause();
-      musicRef.current.currentTime = 0;
-      musicRef.current.loop = true;
-      musicRef.current.play();
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.currentTime = 0;
+        musicRef.current.loop = true;
+        musicRef.current.play();
+      }
   
       initializeNewGame();
 
@@ -108,22 +108,23 @@ function Board() {
       if (piece.length > 0) {
         movePieceDown();
       }
-      // else, continue by re-evaluating the board (will call delayLoadNextPiece())
+      // else, continue by re-evaluating the board
       else {
         evaluateGrid();
       }
 
-      musicRef.current.loop = true;
-      musicRef.current.play();
+      if (musicRef.current) {
+        musicRef.current.loop = true;
+        musicRef.current.play();
+      }
     }
     else if (gameState === EGameState.PAUSED) {
       stopTimers();
-      musicRef.current.pause();
+      musicRef.current?.pause();
     }
     else if (gameState === EGameState.ENDED) {
       stopTimers();
-      musicRef.current.pause();
-
+      musicRef.current?.pause();
       console.log("=== GAME OVER ===");
     }
 
@@ -132,17 +133,35 @@ function Board() {
   }, [gameState])
 
   function stopTimers() {
-    clearInterval(delayMovePieceDownTimerRef.current);
+    clearTimeout(delayLoadPieceTimerRef.current);
+    delayLoadPieceTimerRef.current = 0;
+
+    clearTimeout(delayMovePieceDownTimerRef.current);
     delayMovePieceDownTimerRef.current = 0;
 
-    clearTimeout(delayLoadNextPieceTimerRef.current);
-    delayLoadNextPieceTimerRef.current = 0;
-
-    clearTimeout(delayEvaluateGridTimerRef.current);
-    delayEvaluateGridTimerRef.current = 0;
+    clearTimeout(delayUpdateGridTimerRef.current);
+    delayUpdateGridTimerRef.current = 0;
 
     clearTimeout(delayRemoveLifeTimerRef.current);
     delayRemoveLifeTimerRef.current = 0;
+  }
+
+  function initializeNewGame() {
+    setGrid(generateEmptyBoard());
+    setPiece([]);
+    setNextPiece([]);
+
+    setLives(SETTINGS.STARTING_LIVES);
+    setScore(0);
+
+    boxId.current = 0;
+  }
+
+  function initializeNewBoard() {
+    setGrid(generateEmptyBoard());
+    setPiece([]);
+
+    boxId.current = 0;
   }
 
   function setBoardFocus() {
@@ -151,7 +170,12 @@ function Board() {
     }
   }
 
-  function delayRemoveLife() {
+
+  //
+  // remove life
+  //
+
+  function queueRemoveLife() {
     if (delayRemoveLifeTimerRef.current) {
       clearTimeout(delayRemoveLifeTimerRef.current);
       delayRemoveLifeTimerRef.current = 0;
@@ -165,7 +189,7 @@ function Board() {
       SETTINGS.NEW_LIFE_DELAY
     );
 
-    sfxNewLifeRef.current.play();
+    sfxNewLifeRef.current!.play();
   }
 
   useEffect(() => {
@@ -174,10 +198,15 @@ function Board() {
         setGameState(EGameState.ENDED);
       } else if (lives < SETTINGS.STARTING_LIVES) {
         initializeNewBoard();
-        delayLoadNextPiece(level.speed);
+        queueLoadPiece(level.speed);
       }
     }
   }, [lives]);
+
+
+  //
+  // update level
+  //
 
   useEffect(() => {
     setLevel(getLevelData(score));
@@ -185,71 +214,73 @@ function Board() {
 
 
   //
-  // main methods
+  // load piece
   //
 
-  function delayLoadNextPiece(delay: number) {
-    if (delayLoadNextPieceTimerRef.current) {
-      clearTimeout(delayLoadNextPieceTimerRef.current);
-      delayLoadNextPieceTimerRef.current = 0;
+  function queueLoadPiece(delayTime: number) {
+    if (delayLoadPieceTimerRef.current) {
+      clearTimeout(delayLoadPieceTimerRef.current);
+      delayLoadPieceTimerRef.current = 0;
     }
 
-    delayLoadNextPieceTimerRef.current = setTimeout(
+    delayLoadPieceTimerRef.current = setTimeout(
       () => {
-        setCallLoadNextPiece(true);
-        delayLoadNextPieceTimerRef.current = 0;
+        loadPiece();
+        delayLoadPieceTimerRef.current = 0;
       },
-      delay
+      delayTime
     );
   };
 
-  useEffect(() => {
-    if (callLoadNextPiece) {
-      setCallLoadNextPiece(false);
-      loadNextPiece();
-    }
-  }, [callLoadNextPiece]);
-
-  function loadNextPiece() {
+  function loadPiece() {
     if (gameState !== EGameState.STARTED) {
       return;
     }
 
     // check if the active piece column can fit new piece
     if (nextPiece.length > 0 && grid[nextPiece[0].col].length > nextPiece[0].row) {
-      delayRemoveLife();
+      queueRemoveLife();
     }
     else {
-      setMatchChain(() => []);
-      
+      setMatchChain([]);
+
       const newPiece = nextPiece.length > 0
         ? nextPiece
         : generateNewPiece(boxId, level);
 
-      setPiece(() => newPiece);
-      delayMovePieceDown();
+      setPiece(newPiece);
+      queueMovePieceDown(false); // with delay
 
       const newNextPiece = generateNewPiece(boxId, level);
       if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
-        sfxJewelboxAlertRef.current.play();
+        sfxJewelboxAlertRef.current!.play();
       }
 
       setNextPiece(newNextPiece);
     }
   }
 
-  function delayMovePieceDown(immediate = false) {
+
+  //
+  //  move piece
+  //
+
+  function cancelDelayMovePieceDown() {
     if (delayMovePieceDownTimerRef.current) {
       clearTimeout(delayMovePieceDownTimerRef.current);
       delayMovePieceDownTimerRef.current = 0;
     }
+  }
+
+  function queueMovePieceDown(immediate: boolean) {
+    cancelDelayMovePieceDown();
 
     if (immediate) {
-      setCallMovePieceDown(true);
+      movePieceDown();
     } else {
       delayMovePieceDownTimerRef.current = setTimeout(
         () => {
-          setCallMovePieceDown(true);
+          movePieceDown();
           delayMovePieceDownTimerRef.current = 0;
         },
         level.speed
@@ -257,55 +288,63 @@ function Board() {
     }
   }
 
-  useEffect(() => {
-    if (callMovePieceDown) {
-      setCallMovePieceDown(false);
-      movePieceDown();
-    }
-  }, [callMovePieceDown])
-
   function movePieceDown() {
-    if (piece.length === 0) {
-      return;
-    }
+    setPiece((prev) => {
+      if (prev.length === 0) {
+        console.error("''' MOVE PIECE DOWN - NO PIECE");
+        return prev;
+      }
+      else if (prev[0].row === grid[prev[0].col].length) {
+        setTransferPieceToGrid(true);
+        return prev;
+      }
+      else {
+        queueMovePieceDown(false); // with delay
+      }
 
-    if (piece[0].row === grid[piece[0].col].length) {
-      const newGrid = [...grid];
-
-      piece.forEach((box) => newGrid[box.col].push(box));
-
-      setPiece(() => []);
-      setGrid(newGrid);
-      setCallEvaluateGrid(true);
-    }
-    else {
-      setPiece(prev => prev.map((box) => ({ ...box, row: box.row - 1 })));
-
-      delayMovePieceDown();
-    }
+      return prev.map((box) => ({ ...box, row: box.row - 1 }));
+    });
   };
 
-  function delayEvaluateGrid() {
-    if (delayEvaluateGridTimerRef.current) {
-      clearTimeout(delayEvaluateGridTimerRef.current);
-      delayEvaluateGridTimerRef.current = 0;
+  useEffect(() => {
+    if (transferPieceToGrid) {
+      setTransferPieceToGrid(false);
+      cancelDelayMovePieceDown();
+
+      piece.forEach((box) => grid[box.col].push(box));
+
+      setPiece([]);
+      queueUpdateGrid(true);
+    }
+  }, [transferPieceToGrid]);
+
+
+  //
+  // update & evaluate grid
+  //
+
+  function queueUpdateGrid(immediate: boolean) {
+    if (delayUpdateGridTimerRef.current) {
+      clearTimeout(delayUpdateGridTimerRef.current);
+      delayUpdateGridTimerRef.current = 0;
     }
 
-    delayEvaluateGridTimerRef.current = setTimeout(
-      () => {
-        setCallEvaluateGrid(true);
-        delayEvaluateGridTimerRef.current = 0;
-      },
-      SETTINGS.MATCH_DELAY
-    );
+    if (immediate) {
+      setGrid([...grid]);
+    } else {
+      delayUpdateGridTimerRef.current = setTimeout(
+        () => {
+          setGrid([...grid]);
+          delayUpdateGridTimerRef.current = 0;
+        },
+        SETTINGS.MATCH_DELAY
+      );
+    }
   }
 
   useEffect(() => {
-    if (callEvaluateGrid) {
-      setCallEvaluateGrid(false);
-      evaluateGrid();
-    }
-  }, [callEvaluateGrid])
+    evaluateGrid();
+  }, [grid])
 
   function evaluateGrid() {
     let updateGrid = false;
@@ -429,7 +468,7 @@ function Board() {
         setScore(prev => prev + matchScore);
 
         if (matchedRare) {
-          sfxMatchRareRef.current.play();
+          sfxMatchRareRef.current?.play();
         }
         else {
           const chimes = [
@@ -441,19 +480,18 @@ function Board() {
             sfxMatch6Ref.current
           ];
           const index = Math.min(matchChain.length, chimes.length - 1);
-          chimes[index].play();
+          chimes[index]?.play();
         }
       }
     }
 
     if (updateGrid) {
-      setGrid([...grid]);
-      delayEvaluateGrid();
+      queueUpdateGrid(false); // with delay
     }
     else {
       // check if any column is above capacity
       if (grid.some(colJewels => colJewels.length > SETTINGS.ROWS)) {
-        delayRemoveLife();
+        queueRemoveLife();
       } 
       else {
         let speed = level.speed;
@@ -461,7 +499,7 @@ function Board() {
           speed = speed / 2;
         }
 
-        delayLoadNextPiece(speed);
+        queueLoadPiece(speed);
       }
     }
   };
@@ -499,8 +537,8 @@ function Board() {
     }
 
     switch (event.key) {
-      // we allow the next piece to be moved left/right before it is loaded
       case "ArrowRight":
+        // can move active piece or next piece (if no active piece) left/right before it is loaded
         const setMovePiece = piece.length > 0 ? setPiece
           : nextPiece.length > 0 ? setNextPiece : null;
         setMovePiece!((prev) => {
@@ -514,8 +552,8 @@ function Board() {
         });
         break;
 
-      // we allow the next piece to be moved left/right before it is loaded
       case "ArrowLeft": {
+        // we allow the next piece to be moved left/right before it is loaded
         const setMovePiece = piece.length > 0 ? setPiece
           : nextPiece.length > 0 ? setNextPiece : null;
         setMovePiece!((prev) => {
@@ -530,11 +568,9 @@ function Board() {
         break;
       }
 
-      // only can rotate the active piece
       case "ArrowUp": {
+        // only can rotate the active piece
         setPiece((prev) => {
-          prev.forEach(box => console.log({...box}))
-
           if (prev.length > 0) {
             const rotatePiece = [];
             const rows = prev.map((box) => box.row);
@@ -550,24 +586,18 @@ function Board() {
         break;
       }
       
-      // only can move down the active piece
       case "ArrowDown": {
-        setPiece((prev) => {
-          if (prev.length > 0 && prev[0].row > grid[prev[0].col].length) {
-            const movePiece = prev.map((box) => ({ ...box, row: box.row + 1 }));
-            return movePiece;
-          }
-          return prev;
-        });
+        queueMovePieceDown(true);
         break;
       }
 
-      // only can drop the active piece
       case " ": {
+        cancelDelayMovePieceDown();
         setPiece((prev) => {
+          // only can drop the active piece
           if (prev.length > 0) {
-            const movePiece = prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
-            return movePiece;
+            setTransferPieceToGrid(true);
+            return prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
           }
           return prev;
         });
