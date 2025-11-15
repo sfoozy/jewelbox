@@ -4,7 +4,7 @@ export const DEBUG = {
 }
 
 export const SETTINGS = {
-  UNIT: 40,
+  UNIT: 20,
   ROWS: 15,
   COLS: 7,
   STARTING_LIVES: 3,

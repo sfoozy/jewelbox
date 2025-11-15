@@ -48,14 +48,15 @@ function Board() {
   const sfxNewLifeRef = useRef<HTMLAudioElement>(null);
 
   const [gameState, setGameState] = useState(EGameState.NONE);
+  const [lives, setLives] = useState(0);
+  const [level, setLevel] = useState<LevelData>(startingLevel);
+  const [score, setScore] = useState(0);
   const [piece, setPiece] = useState<BoxData[]>([]);
   const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
   const [transferPieceToGrid, setTransferPieceToGrid] = useState(false);
   const [grid, setGrid] = useState<BoxData[][]>([]);
-  const [lives, setLives] = useState(0);
-  const [level, setLevel] = useState<LevelData>(startingLevel);
-  const [score, setScore] = useState(0);
   const [matchChain, setMatchChain] = useState<number[]>([]);
+
   const boxId = useRef(0);
 
   const delayLoadPieceTimerRef = useRef(0);
@@ -152,6 +153,7 @@ function Board() {
     setNextPiece([]);
 
     setLives(SETTINGS.STARTING_LIVES);
+    setLevel(startingLevel);
     setScore(0);
 
     boxId.current = 0;
@@ -596,6 +598,8 @@ function Board() {
         setPiece((prev) => {
           // only can drop the active piece
           if (prev.length > 0) {
+            const dropDistance = prev[0].row - grid[prev[0].col].length;
+            setScore(score + dropDistance * level.level);
             setTransferPieceToGrid(true);
             return prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
           }
