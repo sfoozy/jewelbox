@@ -272,6 +272,8 @@ function Board() {
     if (piece[0].row === grid[piece[0].col].length) {
       const newGrid = [...grid];
 
+      piece.forEach((box) => newGrid[box.col].push(box));
+
       setPiece(() => []);
       setGrid(newGrid);
       setCallEvaluateGrid(true);
