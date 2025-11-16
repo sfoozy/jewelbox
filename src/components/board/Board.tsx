@@ -1,5 +1,5 @@
 
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
@@ -29,6 +29,7 @@ import { getJewelValue, isRareJewel } from "../jewel/jewelHelpers";
 import Box from "../box/Box";
 import type { BoxData } from "../../types/boxData";
 import type { LevelData } from "../../types/levelData";
+import type { DropRowData } from "../../types/dropRowData";
 
 function Board() {
 
@@ -56,6 +57,7 @@ function Board() {
   const [transferPieceToGrid, setTransferPieceToGrid] = useState(false);
   const [grid, setGrid] = useState<BoxData[][]>([]);
   const [matchChain, setMatchChain] = useState<number[]>([]);
+  const [dropRow, setDropRow] = useState<DropRowData>({ distance: 0, col: -1, startRow: -1 });
 
   const boxId = useRef(0);
 
@@ -245,6 +247,7 @@ function Board() {
     }
     else {
       setMatchChain([]);
+      setDropRow({ distance: 0, col: -1, startRow: -1 });
 
       const newPiece = nextPiece.length > 0
         ? nextPiece
@@ -293,7 +296,6 @@ function Board() {
   function movePieceDown() {
     setPiece((prev) => {
       if (prev.length === 0) {
-        console.error("''' MOVE PIECE DOWN - NO PIECE");
         return prev;
       }
       else if (prev[0].row === grid[prev[0].col].length) {
@@ -599,6 +601,13 @@ function Board() {
           // only can drop the active piece
           if (prev.length > 0) {
             const dropDistance = prev[0].row - grid[prev[0].col].length;
+            const newDropRow = {
+              distance: dropDistance,
+              startRow: prev[2].row,
+              col: prev[2].col
+            }
+
+            setDropRow(newDropRow);
             setScore(score + dropDistance * level.level);
             setTransferPieceToGrid(true);
             return prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
@@ -647,6 +656,32 @@ function Board() {
     }
     return lifeDots;
   };
+
+  function renderDropScore(): React.ReactNode[] {
+    if (dropRow.distance === 0) {
+      return [];
+    }
+    const dropScores = [];
+    for (let i = 0; i < dropRow.distance; i++) {
+      dropScores.push((
+        <div key={i} className="absolute w-full h-full">
+          <div className="absolute border-shadow flex justify-center items-center
+            drop-score-animation text-gray-900 text-[16px] font-bold" 
+            style={{
+              top: `${(SETTINGS.ROWS - dropRow.startRow + i - 1) * SETTINGS.UNIT}px`,
+              left: `${dropRow.col * SETTINGS.UNIT}px`,
+              width: `${SETTINGS.UNIT}px`,
+              height: `${SETTINGS.UNIT}px`,
+            }}
+          >
+            +{level.level}
+          </div>
+        </div>
+      ));
+    }
+
+    return dropScores;
+  }
 
   function renderMatchChainScore() {
     const textClassNames = [
@@ -781,6 +816,7 @@ function Board() {
                 }}
               >
                 { renderGrid() }
+                { renderDropScore() }
                 { renderMatchChainMultiplier() }
                 { renderImage() }
               </div>

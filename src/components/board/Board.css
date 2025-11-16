@@ -22,9 +22,31 @@
   animation-iteration-count: 1;
 }
 
+@keyframes dropScore {
+  0% {
+    opacity: 40%;
+  }
+
+  100% {
+    opacity: 0%;
+  }
+}
+
+.drop-score-animation {
+  animation-name: dropScore;
+  /* Link to the keyframes */
+  animation-duration: 2s;
+  /* How long the animation takes */
+  animation-timing-function: ease-out;
+  /* Controls the speed curve */
+  animation-fill-mode: forwards;
+  /* Keeps the final state after animation */
+  animation-iteration-count: 1;
+}
+
 @keyframes matchChainMultiplier {
   0% {
-    opacity: 20%;
+    opacity: 40%;
     transform: translateY(40px);
   }
 

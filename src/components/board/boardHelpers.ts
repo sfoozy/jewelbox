@@ -56,7 +56,7 @@ export function getLevelData(score: number): LevelData {
   const level = Math.floor(score / 10000);
   const levelData = {
     level: level,
-    speed: Math.max(800 - (level * 50), 200),
+    speed: DEBUG.SPEED ? 200 : Math.max(800 - (level * 50), 200),
     jewelFrequency: {
       [EJewelType.COMMON_1]: 400,
       [EJewelType.COMMON_2]: 400,
@@ -87,7 +87,8 @@ export function getLevelData(score: number): LevelData {
     : 0;
 
   freq = Object.values(levelData.jewelFrequency).reduce((total, freq) => total + freq);
-  levelData.jewelFrequency[EJewelType.JEWELBOX] = Math.floor(freq * SETTINGS.JEWELBOX_FREQUENCY);
+  const jewelBoxFrequency = 0.01;
+  levelData.jewelFrequency[EJewelType.JEWELBOX] = Math.floor(freq * jewelBoxFrequency);
 
   if (DEBUG.COLORS) {
     Object.values(EJewelType).forEach((type) => {

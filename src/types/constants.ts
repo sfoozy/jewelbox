@@ -1,18 +1,18 @@
 export const DEBUG = {
   COLORS: false,
   LEVELS: false,
+  SPEED: false,
 }
 
 export const SETTINGS = {
-  UNIT: 20,
+  UNIT: 40,
   ROWS: 15,
   COLS: 7,
   STARTING_LIVES: 3,
   PIECE_SIZE: 3,
   MATCH_SIZE: 3,
   MATCH_DELAY: 400,
-  NEW_LIFE_DELAY: 1000,
-  JEWELBOX_FREQUENCY: 1/100
+  NEW_LIFE_DELAY: 1000
 }
 
 export enum EGameState {
