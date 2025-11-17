@@ -25,7 +25,7 @@ export function getRandomJewelType(levelData: LevelData): EJewelType {
   return Number(choices[rand]);
 }
 
-export function generateNewPiece(startId: React.RefObject<number>, level: LevelData): BoxData[] {
+export function generateNewPiece(startId: React.RefObject<number>, level: LevelData, forceJewelBox: boolean): BoxData[] {
   const piece: BoxData[] = [];
 
   for (let i = 0; i < SETTINGS.PIECE_SIZE; i++) {  
@@ -34,7 +34,9 @@ export function generateNewPiece(startId: React.RefObject<number>, level: LevelD
       row: START_ROW + i,
       col: START_COL,
       jewel: {
-        type: getRandomJewelType(level),
+        type: forceJewelBox
+          ? EJewelType.JEWELBOX
+          : getRandomJewelType(level),
         state: EJewelState.DIRTY
       }
     });
@@ -56,7 +58,7 @@ export function getLevelData(score: number): LevelData {
   const level = Math.floor(score / 10000);
   const levelData = {
     level: level,
-    speed: DEBUG.SPEED ? 200 : Math.max(800 - (level * 50), 200),
+    speed: DEBUG.SPEED ? 250 : Math.max(800 - (level * 50), 250),
     jewelFrequency: {
       [EJewelType.COMMON_1]: 400,
       [EJewelType.COMMON_2]: 400,
@@ -66,10 +68,10 @@ export function getLevelData(score: number): LevelData {
       [EJewelType.VALUE_1]: 300,
       [EJewelType.VALUE_2]: level > 1 ? 300 : 0,
       [EJewelType.VALUE_3]: level > 5 ? 300 : 0,
-      [EJewelType.RARE_1]: 0,
-      [EJewelType.RARE_2]: 0,
-      [EJewelType.LUXE_1]: 0,
-      [EJewelType.JEWELBOX]: 0,
+      [EJewelType.RARE_1]: 0, // ~5% + 0.5% per level
+      [EJewelType.RARE_2]: 0, // ~5% + 0.5% per level
+      [EJewelType.LUXE_1]: 0, // starting level 10... ~5% + 1% per level after 10
+      [EJewelType.JEWELBOX]: 0, // 1%
     }
   };
 

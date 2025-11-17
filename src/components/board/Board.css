@@ -46,7 +46,7 @@
 
 @keyframes matchChainMultiplier {
   0% {
-    opacity: 40%;
+    opacity: 80%;
     transform: translateY(40px);
   }
 

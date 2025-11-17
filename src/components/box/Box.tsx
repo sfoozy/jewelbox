@@ -1,6 +1,6 @@
 import { SETTINGS } from "../../types/constants";
 import type { BoxData } from "../../types/boxData";
-import Jewel from "../jewel/Jewel";
+import Jewel from "../Jewel/Jewel";
 
 function Box({
   box,

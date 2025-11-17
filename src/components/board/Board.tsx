@@ -14,8 +14,6 @@ import jewelboxAlert from "../../resources/sounds/jewelbox_alert.mp3";
 import newLifeSound from "../../resources/sounds/life.mp3";
 import jewelboxImage from "../../resources/images/jewelbox.png";
 
-const startingLevel = getLevelData(0);
-
 import {
   DEBUG,
   SETTINGS,
@@ -23,13 +21,17 @@ import {
   EJewelType,
   EGameState,
 } from "../../types/constants";
-import Jewel from "../jewel/Jewel";
 import { generateEmptyBoard, generateNewPiece, getLevelData } from "./boardHelpers";
-import { getJewelValue, isRareJewel } from "../jewel/jewelHelpers";
-import Box from "../box/Box";
+import { getJewelValue, isRareJewel } from "../Jewel/jewelHelpers";
+import Box from "../Box/Box";
+import JewelDisplay from "../JewelDisplay/JewelDisplay";
 import type { BoxData } from "../../types/boxData";
 import type { LevelData } from "../../types/levelData";
 import type { DropRowData } from "../../types/dropRowData";
+import Display from "../Display/Display";
+import Jewel from "../Jewel/Jewel";
+
+const STARTING_LEVEL = getLevelData(0);
 
 function Board() {
 
@@ -50,7 +52,7 @@ function Board() {
 
   const [gameState, setGameState] = useState(EGameState.NONE);
   const [lives, setLives] = useState(0);
-  const [level, setLevel] = useState<LevelData>(startingLevel);
+  const [level, setLevel] = useState<LevelData>(STARTING_LEVEL);
   const [score, setScore] = useState(0);
   const [piece, setPiece] = useState<BoxData[]>([]);
   const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
@@ -58,6 +60,7 @@ function Board() {
   const [grid, setGrid] = useState<BoxData[][]>([]);
   const [matchChain, setMatchChain] = useState<number[]>([]);
   const [dropRow, setDropRow] = useState<DropRowData>({ distance: 0, col: -1, startRow: -1 });
+  const [forceJewelBox, setForceJewelBox] = useState(false);
 
   const boxId = useRef(0);
 
@@ -155,7 +158,7 @@ function Board() {
     setNextPiece([]);
 
     setLives(SETTINGS.STARTING_LIVES);
-    setLevel(startingLevel);
+    setLevel(STARTING_LEVEL);
     setScore(0);
 
     boxId.current = 0;
@@ -213,9 +216,16 @@ function Board() {
   //
 
   useEffect(() => {
-    setLevel(getLevelData(score));
+    const level = getLevelData(score);
+    setLevel(level);
   }, [Math.floor(score / 10000)]);
 
+
+  useEffect(() => {
+    if (level.level > 0) {
+      setForceJewelBox(true); // jewelbox on new level
+    }
+  }, [level]);
 
   //
   // load piece
@@ -251,12 +261,14 @@ function Board() {
 
       const newPiece = nextPiece.length > 0
         ? nextPiece
-        : generateNewPiece(boxId, level);
+        : generateNewPiece(boxId, level, false);
 
       setPiece(newPiece);
       queueMovePieceDown(false); // with delay
 
-      const newNextPiece = generateNewPiece(boxId, level);
+      const newNextPiece = generateNewPiece(boxId, level, forceJewelBox);
+      setForceJewelBox(false);
+
       if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
         sfxJewelboxAlertRef.current!.play();
       }
@@ -627,12 +639,104 @@ function Board() {
   // render
   //
 
-  function renderNextPiece(): React.ReactElement[] {
-    return nextPiece.map((box, i) => {
-      return <Jewel key={i} jewel={box.jewel} />
-    });
+  function renderLives(): React.ReactNode {
+    const lifeDots = [];
+    for (let i = 0; i < lives; i++) {
+      lifeDots.push(
+        <div key={i} className="rounded-full w-4 h-4 bg-white"></div>
+      );
+    }
+    return (
+      <div className="p-2">
+        <div className="flex flex-row gap-2 justify-center items-center w-[76px] h-7">
+          { lifeDots }
+        </div>
+      </div>
+    );
   }
-  
+
+  function renderLevel(): React.ReactNode {
+    return (
+      <div className="p-2">
+        <div className="flex justify-center items-center w-[76px]">
+          <div className="text-white text-xl font-semibold pb-1">
+            { level.level }
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderScore(): React.ReactNode {
+    return (
+      <div className="p-2">
+        <div className="flex justify-center items-center w-[76px]">
+          <div className="text-white text-xl font-semibold pb-1">
+            { score }
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderMatchChainScore() {
+    const textClassNames = [
+      "text-[16px]", "text-[20px]", "text-[26px]", "text-[34px]", "text-[44px]",
+      "text-[56px]", "text-[70px]", "text-[86px]", "text-[104px]", "text-[124px]",
+    ]
+
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-[100px] p-2 flex flex-col items-center">
+          {
+            matchChain.map((score, i) => {
+              return (
+                <div key={i}
+                  className={`absolute ${textClassNames[i]} font-extrabold text-white match-chain-score-animation`}
+                >
+                  { score }
+                </div>
+              )
+            })
+          }
+        </div>
+      </div>
+    );
+  }
+
+  function renderBoard(): React.ReactNode {
+    return (
+      <div className="border-2 border-amber-400 focus:outline-0"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        ref={boardRef}
+      >
+        <div className="border-2 border-black">
+          <div className="relative flex justify-center items-center
+                bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden cursor-pointer"
+            style={{ width: `${SETTINGS.COLS * SETTINGS.UNIT}px`, height: `${SETTINGS.ROWS * SETTINGS.UNIT}px` }}
+            onClick={() => {
+              if (gameState === EGameState.PAUSED) {
+                setGameState(EGameState.STARTED);
+              }
+              else if (gameState === EGameState.STARTED) {
+                setGameState(EGameState.PAUSED);
+              }
+              else if ([EGameState.ENDED, EGameState.NONE].includes(gameState)) {
+                setGameState(EGameState.STARTING);
+              }
+            }}
+          >
+            { renderGrid() }
+            { renderDropScore() }
+            { renderMatchChainMultiplier() }
+            { renderImage() }
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   function renderGrid(): React.ReactElement[] {
     const pieceBoxes = piece.map((box) => {
       return <Box key={box.id} box={box} rowCount={SETTINGS.ROWS} />
@@ -646,16 +750,6 @@ function Board() {
 
     return gridBoxes.flat().concat(pieceBoxes);
   }
-
-  function renderLives(): React.ReactElement[] {
-    const lifeDots = [];
-    for (let i = 0; i < lives; i++) {
-      lifeDots.push(
-        <div key={i} className="rounded-full w-4 h-4 bg-white"></div>
-      );
-    }
-    return lifeDots;
-  };
 
   function renderDropScore(): React.ReactNode[] {
     if (dropRow.distance === 0) {
@@ -682,25 +776,6 @@ function Board() {
 
     return dropScores;
   }
-
-  function renderMatchChainScore() {
-    const textClassNames = [
-      "text-[16px]", "text-[20px]", "text-[26px]", "text-[34px]", "text-[44px]",
-      "text-[56px]", "text-[70px]", "text-[86px]", "text-[104px]", "text-[124px]",
-    ]
-    
-    return matchChain.map((score, i) => {
-      return (
-        <div key={i}
-          className={`absolute
-            ${textClassNames[i]} font-extrabold text-white match-chain-score-animation`
-          }
-        >
-          { score }
-        </div>
-      )
-    })
-  };
 
   function renderMatchChainMultiplier(): React.ReactNode[] {
     if (matchChain.length <= 1) {
@@ -736,176 +811,27 @@ function Board() {
       );
   }
 
-  return (
-    <>
-      <div className="flex flex-row gap-8">
-        <div className="flex flex-col items-end gap-8 mt-8 w-[400px] h-[calc(full - 8rem)]">
-          <div className="flex flex-col items-center">
-            <div className="text-lg font-semibold text-amber-400">
-              LIVES
-            </div>
-            <div className="border-2 border-amber-400">
-              <div className="border-2 border-black">
-                <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
-                  <div className="flex flex-row gap-2 justify-center items-center w-[76px] h-7">
-                    {renderLives()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-lg font-semibold text-amber-400">
-              LEVEL
-            </div>
-            <div className="border-2 border-amber-400">
-              <div className="border-2 border-black">
-                <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
-                  <div className="flex justify-center w-[76px]">
-                    <div className="text-white text-xl font-semibold">
-                      {level.level}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-lg font-semibold text-amber-400">
-              SCORE
-            </div>
-            <div className="border-2 border-amber-400">
-              <div className="border-2 border-black">
-                <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-2">
-                  <div className="flex justify-center w-[76px]">
-                    <div className="text-white text-xl font-semibold">
-                      {score}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="w-[100px] p-2 flex flex-col items-center">
-              {renderMatchChainScore()}
-            </div>
-          </div>
-        </div>
-        
-        <div>
-          <div className="border-2 border-amber-400 focus:outline-0"
-            tabIndex={0}
-            onKeyDown={handleKeyDown}
-            ref={boardRef}
-          >
-            <div className="border-2 border-black">
-              <div className="relative flex justify-center items-center
-                bg-gray-700 text-white border-2 border-gray-700 box-content overflow-hidden cursor-pointer"
-                style={{ width: `${SETTINGS.COLS * SETTINGS.UNIT}px`, height: `${SETTINGS.ROWS * SETTINGS.UNIT}px` }}
-                onClick={() => {
-                  if (gameState === EGameState.PAUSED) {
-                    setGameState(EGameState.STARTED);
-                  }
-                  else if (gameState === EGameState.STARTED) {
-                    setGameState(EGameState.PAUSED);
-                  }
-                  else if ([EGameState.ENDED, EGameState.NONE].includes(gameState)) {
-                    setGameState(EGameState.STARTING);
-                  }
-                }}
-              >
-                { renderGrid() }
-                { renderDropScore() }
-                { renderMatchChainMultiplier() }
-                { renderImage() }
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-start mt-8 gap-8 w-[400px] h-[calc(full - 8rem)]">
-          <div className="flex flex-col items-center">
-            <div className="text-lg font-semibold text-amber-400">
-              NEXT
-            </div>
-            <div className="border-2 border-amber-400">
-              <div className="border-2 border-black">
-                <div className="flex bg-gray-700 text-white border-2 border-gray-700 box-content p-4">
-                  <div className="relative flex flex-col-reverse" style={{ width: SETTINGS.UNIT, height: SETTINGS.UNIT * SETTINGS.PIECE_SIZE }}>
-                    {renderNextPiece()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-start justify-end gap-4 h-full mb-8">
-            {
-              level.jewelFrequency[EJewelType.LUXE_1] > 0
-              &&
-              <div>
-                <div className="text-lg font-semibold text-amber-400">LUXE</div>
-                <div className="relative flex gap-2 items-center">
-                  <Jewel jewel={{ type: EJewelType.LUXE_1, state: EJewelState.CLEAN }} />
-                  <div className="text-sm font-semibold text-white">= 600</div>
-                </div>
-              </div>
-            }
-
-            <div>
-              <div className="text-lg font-semibold text-amber-400">RARE</div>
-              <div className="relative flex gap-2 items-center">
-                <Jewel jewel={{ type: EJewelType.RARE_1, state: EJewelState.CLEAN }} />
-                {
-                  level.jewelFrequency[EJewelType.RARE_2] > 0
-                  &&
-                  <Jewel jewel={{ type: EJewelType.RARE_2, state: EJewelState.CLEAN }} />
-                }
-                <div className="text-sm font-semibold text-white">= 300</div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-lg font-semibold text-amber-400">VALUE</div>
-              <div className="relative flex gap-2 items-center">
-                <Jewel jewel={{ type: EJewelType.VALUE_1, state: EJewelState.CLEAN }} />
-                {
-                  level.jewelFrequency[EJewelType.VALUE_2] > 0
-                  &&
-                  <Jewel jewel={{ type: EJewelType.VALUE_2, state: EJewelState.CLEAN }} />
-                }
-                {
-                  level.jewelFrequency[EJewelType.VALUE_3] > 0
-                  &&
-                  <Jewel jewel={{ type: EJewelType.VALUE_3, state: EJewelState.CLEAN }} />
-                }
-                <div className="text-sm font-semibold text-white">= 100</div>
-              </div>
-            </div>
-
-            <div>
-              <div className="text-lg font-semibold text-amber-400">COMMON</div>
-              <div className="relative flex gap-2 items-center">
-                <Jewel jewel={{ type: EJewelType.COMMON_1, state: EJewelState.CLEAN }} />
-                <Jewel jewel={{ type: EJewelType.COMMON_2, state: EJewelState.CLEAN }} />
-                <Jewel jewel={{ type: EJewelType.COMMON_3, state: EJewelState.CLEAN }} />
-                {
-                  level.jewelFrequency[EJewelType.COMMON_4] > 0
-                  &&
-                  <Jewel jewel={{ type: EJewelType.COMMON_4, state: EJewelState.CLEAN }} />
-                }
-                {
-                  level.jewelFrequency[EJewelType.COMMON_5] > 0
-                  &&
-                  <Jewel jewel={{ type: EJewelType.COMMON_5, state: EJewelState.CLEAN }} />
-                }
-                <div className="text-sm font-semibold text-white"> = 50</div>
-              </div>
-            </div>
-          </div>
+  function renderNextPiece(): React.ReactNode {
+    return (
+      <div className="p-4">
+        <div className="relative flex flex-col-reverse"
+          style={{
+            width: SETTINGS.UNIT,
+            height: SETTINGS.UNIT * SETTINGS.PIECE_SIZE
+          }}
+        >
+          {
+            nextPiece.map((box, i) => {
+              return <Jewel key={i} jewel={box.jewel} />
+            })
+          }
         </div>
       </div>
-      
+    );
+  }
+
+  function renderGameButtons() {
+    return (
       <div className="flex flex-row gap-4">
         <button
           className="bg-green-600 text-white text-lg
@@ -913,11 +839,11 @@ function Board() {
                     cursor-pointer
                     hover:bg-green-500
                     active:bg-green-700"
-          onMouseUp={() => 
+          onMouseUp={() =>
             setGameState(EGameState.STARTING)
           }
         >
-          { [EGameState.STARTED, EGameState.PAUSED].includes(gameState) ? "RESTART" : "START" }
+          {[EGameState.STARTED, EGameState.PAUSED].includes(gameState) ? "RESTART" : "START"}
         </button>
         <button
           className="bg-gray-700 text-white text-lg
@@ -926,7 +852,7 @@ function Board() {
                     hover:bg-gray-600
                     active:bg-gray-800"
           disabled={![EGameState.STARTED, EGameState.PAUSED].includes(gameState)}
-          onMouseUp={() => 
+          onMouseUp={() =>
             setGameState(gameState === EGameState.PAUSED
               ? EGameState.STARTED
               : EGameState.PAUSED
@@ -940,6 +866,34 @@ function Board() {
           }
         </button>
       </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-row gap-8">
+        <div className="flex flex-col items-end gap-8 mt-8 w-[400px] h-[calc(full - 8rem)]">
+          <Display title="LIVES" content={ renderLives() } />
+
+          <Display title="LEVEL" content={ renderLevel() } />
+
+          <Display title="SCORE" content={ renderScore() } />
+
+          { renderMatchChainScore() }
+        </div>
+        
+        <div>
+          { renderBoard() }
+        </div>
+
+        <div className="flex flex-col items-start mt-8 gap-8 w-[400px] h-[calc(full - 8rem)]">
+          <Display title="NEXT" content={ renderNextPiece() } />
+
+          <JewelDisplay level={level} />
+        </div>
+      </div>
+      
+      { renderGameButtons() }
     </>
   );
 }
