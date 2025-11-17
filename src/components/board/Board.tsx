@@ -870,9 +870,9 @@ function Board() {
   }
 
   return (
-    <>
+    <div className="flex flex-col justify-center items-center">
       <div className="flex flex-row gap-8">
-        <div className="flex flex-col items-end gap-8 mt-8 w-[400px] h-[calc(full - 8rem)]">
+        <div className="flex flex-col items-end gap-8 mt-8 w-[300px] h-[calc(full - 8rem)]">
           <Display title="LIVES" content={ renderLives() } />
 
           <Display title="LEVEL" content={ renderLevel() } />
@@ -886,7 +886,7 @@ function Board() {
           { renderBoard() }
         </div>
 
-        <div className="flex flex-col items-start mt-8 gap-8 w-[400px] h-[calc(full - 8rem)]">
+        <div className="flex flex-col items-start mt-8 gap-8 w-[300px] h-[calc(full - 8rem)]">
           <Display title="NEXT" content={ renderNextPiece() } />
 
           <JewelDisplay level={level} />
@@ -894,7 +894,7 @@ function Board() {
       </div>
       
       { renderGameButtons() }
-    </>
+    </div>
   );
 }
 

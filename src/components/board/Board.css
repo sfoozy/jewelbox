@@ -35,7 +35,7 @@
 .drop-score-animation {
   animation-name: dropScore;
   /* Link to the keyframes */
-  animation-duration: 2s;
+  animation-duration: 3s;
   /* How long the animation takes */
   animation-timing-function: ease-out;
   /* Controls the speed curve */

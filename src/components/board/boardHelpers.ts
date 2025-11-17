@@ -70,7 +70,7 @@ export function getLevelData(score: number): LevelData {
       [EJewelType.VALUE_3]: level > 5 ? 300 : 0,
       [EJewelType.RARE_1]: 0, // ~5% + 0.5% per level
       [EJewelType.RARE_2]: 0, // ~5% + 0.5% per level
-      [EJewelType.LUXE_1]: 0, // starting level 10... ~5% + 1% per level after 10
+      [EJewelType.LUXE_1]: 0, // ~5% (starting at level 10) + 1% per level after
       [EJewelType.JEWELBOX]: 0, // 1%
     }
   };

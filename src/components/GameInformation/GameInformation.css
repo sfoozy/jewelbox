@@ -1,0 +1,11 @@
+.gradient-text {
+  font-weight: bold;
+  background-image: linear-gradient(to right, #EFB100, #00BBA7, #FB64B6);
+  /* Define your gradient colors and direction */
+  -webkit-background-clip: text;
+  /* Clip the background to the shape of the text for Webkit browsers */
+  background-clip: text;
+  /* Clip the background to the shape of the text for other browsers */
+  color: transparent;
+  /* Make the text transparent to reveal the background gradient */
+}
