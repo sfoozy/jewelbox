@@ -24,7 +24,7 @@
 
 @keyframes dropScore {
   0% {
-    opacity: 40%;
+    opacity: 80%;
   }
 
   100% {
@@ -35,7 +35,7 @@
 .drop-score-animation {
   animation-name: dropScore;
   /* Link to the keyframes */
-  animation-duration: 3s;
+  animation-duration: 1s;
   /* How long the animation takes */
   animation-timing-function: ease-out;
   /* Controls the speed curve */
@@ -46,7 +46,7 @@
 
 @keyframes matchChainMultiplier {
   0% {
-    opacity: 80%;
+    opacity: 40%;
     transform: translateY(40px);
   }
 

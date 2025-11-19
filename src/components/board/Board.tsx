@@ -12,6 +12,7 @@ import matchChime6 from "../../resources/sounds/chime_6.mp3";
 import matchChimeRare from "../../resources/sounds/chime_rare.mp3";
 import jewelboxAlert from "../../resources/sounds/jewelbox_alert.mp3";
 import newLifeSound from "../../resources/sounds/life.mp3";
+import newLevelSound from "../../resources/sounds/level.mp3";
 import jewelboxImage from "../../resources/images/jewelbox.png";
 
 import {
@@ -30,6 +31,7 @@ import type { LevelData } from "../../types/levelData";
 import type { DropRowData } from "../../types/dropRowData";
 import Display from "../Display/Display";
 import Jewel from "../Jewel/Jewel";
+import GameInformation from "../GameInformation/GameInformation";
 
 const STARTING_LEVEL = getLevelData(0);
 
@@ -49,6 +51,7 @@ function Board() {
   const sfxMatchRareRef = useRef<HTMLAudioElement>(null);
   const sfxJewelboxAlertRef = useRef<HTMLAudioElement>(null);
   const sfxNewLifeRef = useRef<HTMLAudioElement>(null);
+  const sfxNewLevelRef = useRef<HTMLAudioElement>(null);
 
   const [gameState, setGameState] = useState(EGameState.NONE);
   const [lives, setLives] = useState(0);
@@ -87,6 +90,7 @@ function Board() {
     sfxMatchRareRef.current = new Audio(matchChimeRare);
     sfxJewelboxAlertRef.current = new Audio(jewelboxAlert);
     sfxNewLifeRef.current = new Audio(newLifeSound);
+    sfxNewLevelRef.current = new Audio(newLevelSound);
   }, []);
 
 
@@ -223,9 +227,11 @@ function Board() {
 
   useEffect(() => {
     if (level.level > 0) {
+      sfxNewLevelRef.current!.play();
       setForceJewelBox(true); // jewelbox on new level
     }
   }, [level]);
+
 
   //
   // load piece
@@ -314,13 +320,19 @@ function Board() {
         setTransferPieceToGrid(true);
         return prev;
       }
-      else {
-        queueMovePieceDown(false); // with delay
+      else if (prev[0].row < grid[prev[0].col].length) {
+        console.error(">>> ERROR: piece overlapping grid!", prev, grid);
       }
 
+      queueMovePieceDown(false); // with delay
       return prev.map((box) => ({ ...box, row: box.row - 1 }));
     });
   };
+
+
+  //
+  // transfer piece to grid
+  //
 
   useEffect(() => {
     if (transferPieceToGrid) {
@@ -557,30 +569,34 @@ function Board() {
         // can move active piece or next piece (if no active piece) left/right before it is loaded
         const setMovePiece = piece.length > 0 ? setPiece
           : nextPiece.length > 0 ? setNextPiece : null;
-        setMovePiece!((prev) => {
-          if (prev.length > 0
-            && prev[0].col < SETTINGS.COLS - 1
-            && prev[0].row >= grid[prev[0].col + 1].length)
-          {
-            return prev.map((box) => ({ ...box, col: box.col + 1 }));
-          }
-          return prev;
-        });
+        if (setMovePiece) {
+          setMovePiece!((prev) => {
+            if (prev.length > 0
+              && prev[0].col < SETTINGS.COLS - 1
+              && prev[0].row >= grid[prev[0].col + 1].length)
+            {
+              return prev.map((box) => ({ ...box, col: box.col + 1 }));
+            }
+            return prev;
+          });
+        }
         break;
 
       case "ArrowLeft": {
         // we allow the next piece to be moved left/right before it is loaded
         const setMovePiece = piece.length > 0 ? setPiece
           : nextPiece.length > 0 ? setNextPiece : null;
-        setMovePiece!((prev) => {
-          if (prev.length > 0
-            && prev[0].col > 0
-            && prev[0].row >= grid[prev[0].col - 1].length)
-          {
-            return prev.map((box) => ({ ...box, col: box.col - 1 }));
-          }
-          return prev;
-        });
+        if (setMovePiece) {
+          setMovePiece!((prev) => {
+            if (prev.length > 0
+              && prev[0].col > 0
+              && prev[0].row >= grid[prev[0].col - 1].length)
+            {
+              return prev.map((box) => ({ ...box, col: box.col - 1 }));
+            }
+            return prev;
+          });
+        }
         break;
       }
 
@@ -870,30 +886,38 @@ function Board() {
   }
 
   return (
-    <div className="flex flex-col justify-center items-center">
-      <div className="flex flex-row gap-8">
-        <div className="flex flex-col items-end gap-8 mt-8 w-[300px] h-[calc(full - 8rem)]">
-          <Display title="LIVES" content={ renderLives() } />
-
-          <Display title="LEVEL" content={ renderLevel() } />
-
-          <Display title="SCORE" content={ renderScore() } />
-
-          { renderMatchChainScore() }
+    <div className="flex flex-col justify-center w-full">
+      <div className="flex justify-between w-full">
+        <div className="basis-[480px] shrink px-8">
+          <GameInformation hide={gameState !== EGameState.NONE && gameState !== EGameState.ENDED} />
         </div>
-        
-        <div>
-          { renderBoard() }
+        <div className="flex flex-row grow basis-[960px] justify-center gap-8 w-full h-fit">
+          <div className="flex flex-col w-full items-end gap-8 mt-8">
+            <Display title="LIVES" content={ renderLives() } />
+
+            <Display title="LEVEL" content={ renderLevel() } />
+
+            <Display title="SCORE" content={ renderScore() } />
+
+            { renderMatchChainScore() }
+          </div>
+          
+          <div>
+            { renderBoard() }
+          </div>
+
+          <div className="flex flex-col w-full items-start mt-8 gap-8">
+            <Display title="NEXT" content={ renderNextPiece() } />
+
+            <JewelDisplay level={level} />
+          </div>
         </div>
-
-        <div className="flex flex-col items-start mt-8 gap-8 w-[300px] h-[calc(full - 8rem)]">
-          <Display title="NEXT" content={ renderNextPiece() } />
-
-          <JewelDisplay level={level} />
+        <div className="basis-[480px] shrink px-8">
         </div>
       </div>
-      
-      { renderGameButtons() }
+      <div className="flex justify-center">
+        { renderGameButtons() }
+      </div>
     </div>
   );
 }
