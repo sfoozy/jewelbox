@@ -35,11 +35,14 @@ export function generateEmptyBoard(): BoxData[][] {
   return Array.from({ length: SETTINGS.COLS }, () => []);
 }
 
-export function getLevelData(score: number): LevelData {
-  const level = Math.floor(score / 10000);
+export function getLevel(score: number): number {
+  return Math.floor(score / 10000);
+}
+
+export function getLevelData(level: number): LevelData {
   const levelData = {
     level: level,
-    speed: DEBUG.SPEED ? 300 : Math.max(900 - (level * 50), 300),
+    speed: DEBUG.SPEED ? 300 : Math.max(800 - (level * 25), 300),
     jewelFrequency: getJewelFrequency(level)
   };
 

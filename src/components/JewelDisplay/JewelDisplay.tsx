@@ -4,14 +4,14 @@ import { EJewelState, EJewelType } from "../../types/constants";
 import { getJewelValue } from "../Jewel/jewelHelpers";
 
 function JewelDisplay({
-  level
+  levelData
 } : {
-  level: LevelData
+  levelData: LevelData
 }) {
   return (
     <div className="flex flex-col items-start justify-end gap-4 h-full mb-8">
       {
-        level.jewelFrequency[EJewelType.LUXE_1] > 0
+        levelData.jewelFrequency[EJewelType.LUXE_1] > 0
         &&
         <div>
           <div className="text-lg font-semibold text-amber-400">LUXE</div>
@@ -27,7 +27,7 @@ function JewelDisplay({
         <div className="relative flex gap-2 items-center">
           <Jewel jewel={{ type: EJewelType.RARE_1, state: EJewelState.CLEAN }} />
           {
-            level.jewelFrequency[EJewelType.RARE_2] > 0
+            levelData.jewelFrequency[EJewelType.RARE_2] > 0
             &&
             <Jewel jewel={{ type: EJewelType.RARE_2, state: EJewelState.CLEAN }} />
           }
@@ -40,12 +40,12 @@ function JewelDisplay({
         <div className="relative flex gap-2 items-center">
           <Jewel jewel={{ type: EJewelType.VALUE_1, state: EJewelState.CLEAN }} />
           {
-            level.jewelFrequency[EJewelType.VALUE_2] > 0
+            levelData.jewelFrequency[EJewelType.VALUE_2] > 0
             &&
             <Jewel jewel={{ type: EJewelType.VALUE_2, state: EJewelState.CLEAN }} />
           }
           {
-            level.jewelFrequency[EJewelType.VALUE_3] > 0
+            levelData.jewelFrequency[EJewelType.VALUE_3] > 0
             &&
             <Jewel jewel={{ type: EJewelType.VALUE_3, state: EJewelState.CLEAN }} />
           }
@@ -60,12 +60,12 @@ function JewelDisplay({
           <Jewel jewel={{ type: EJewelType.COMMON_2, state: EJewelState.CLEAN }} />
           <Jewel jewel={{ type: EJewelType.COMMON_3, state: EJewelState.CLEAN }} />
           {
-            level.jewelFrequency[EJewelType.COMMON_4] > 0
+            levelData.jewelFrequency[EJewelType.COMMON_4] > 0
             &&
             <Jewel jewel={{ type: EJewelType.COMMON_4, state: EJewelState.CLEAN }} />
           }
           {
-            level.jewelFrequency[EJewelType.COMMON_5] > 0
+            levelData.jewelFrequency[EJewelType.COMMON_5] > 0
             &&
             <Jewel jewel={{ type: EJewelType.COMMON_5, state: EJewelState.CLEAN }} />
           }

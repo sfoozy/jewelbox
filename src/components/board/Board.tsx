@@ -22,7 +22,7 @@ import {
   EJewelType,
   EGameState,
 } from "../../types/constants";
-import { generateEmptyBoard, generateNewPiece, getLevelData } from "./boardHelpers";
+import { generateEmptyBoard, generateNewPiece, getLevel, getLevelData } from "./boardHelpers";
 import { getJewelValue, isJewelRare } from "../Jewel/jewelHelpers";
 import Box from "../Box/Box";
 import JewelDisplay from "../JewelDisplay/JewelDisplay";
@@ -33,7 +33,7 @@ import Display from "../Display/Display";
 import Jewel from "../Jewel/Jewel";
 import GameInformation from "../GameInformation/GameInformation";
 
-const STARTING_LEVEL = getLevelData(0);
+const STARTING_LEVEL_DATA = getLevelData(0);
 
 function Board() {
 
@@ -55,7 +55,7 @@ function Board() {
 
   const [gameState, setGameState] = useState(EGameState.NONE);
   const [lives, setLives] = useState(0);
-  const [level, setLevel] = useState<LevelData>(STARTING_LEVEL);
+  const [levelData, setLevelData] = useState<LevelData>(STARTING_LEVEL_DATA);
   const [score, setScore] = useState(0);
   const [piece, setPiece] = useState<BoxData[]>([]);
   const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
@@ -162,7 +162,7 @@ function Board() {
     setNextPiece([]);
 
     setLives(SETTINGS.STARTING_LIVES);
-    setLevel(STARTING_LEVEL);
+    setLevelData(STARTING_LEVEL_DATA);
     setScore(0);
 
     boxId.current = 0;
@@ -209,32 +209,34 @@ function Board() {
         setGameState(EGameState.ENDED);
       } else if (lives < SETTINGS.STARTING_LIVES) {
         initializeNewBoard();
-        queueLoadPiece(level.speed);
+        queueLoadPiece(levelData.speed);
       }
     }
   }, [lives]);
 
 
   //
-  // update level
+  // update score/level
   //
 
-  useEffect(() => {
-    const level = getLevelData(score);
-    console.log(">>> SCORE -->  UPDATE LEVEL:", level);
-    
-    setLevel(level);
+  function updateScore(addScore: number) {
+    setScore((prev) => {
+      const newScore = prev + addScore;
+      console.log(`+++ SCORE: +${addScore} = ${newScore}`);
+      const newLevel = getLevel(newScore);
+      if (newLevel > levelData.level) {
+        setLevelData(getLevelData(newLevel));
+        sfxNewLevelRef.current!.play();
 
-    if (level.level !== STARTING_LEVEL.level) {
-      sfxNewLevelRef.current!.play(); 
+        // NOTE: we have to update forceJewelBox here instead of from another useEffect based on level changing,
+        // because of setTimeout() closure issues
+        // (drop scoring is followed by transfer to grid which eventually calls loadPiece, which uses forceJewelBox)
+        setForceJewelBox(true); // jewelbox on new level
+      }
 
-      // NOTE: we have to update forceJewelBos here instead of from another useEffect based on level changing,
-      // because of setTimeout() closure issues
-      // (drop scoring is followed by transfer to grid which eventually calls loadPiece, which uses forceJewelBox)
-      setForceJewelBox(true); // jewelbox on new level
-    }
-  }, [Math.floor(score / 10000)]);
-
+      return newScore;
+    });
+  }
 
   //
   // load piece
@@ -270,12 +272,12 @@ function Board() {
 
       const newPiece = nextPiece.length > 0
         ? nextPiece
-        : generateNewPiece(boxId, level, false);
+        : generateNewPiece(boxId, levelData, false);
 
       setPiece(newPiece);
       queueMovePieceDown(false); // with delay
 
-      const newNextPiece = generateNewPiece(boxId, level, forceJewelBox);
+      const newNextPiece = generateNewPiece(boxId, levelData, forceJewelBox);
 
       setForceJewelBox(false);
 
@@ -310,7 +312,7 @@ function Board() {
           movePieceDown();
           delayMovePieceDownTimerRef.current = 0;
         },
-        level.speed
+        levelData.speed
       );
     }
   }
@@ -498,7 +500,7 @@ function Board() {
         });
 
         setMatchChain([...matchChain, matchScore]);
-        setScore(prev => prev + matchScore);
+        updateScore(matchScore);
 
         if (matchedRare) {
           sfxMatchRareRef.current?.play();
@@ -527,11 +529,12 @@ function Board() {
         queueRemoveLife();
       } 
       else {
-        let speed = level.speed;
+        let speed = levelData.speed;
         if (matchChain.length > 0) {
           speed = speed / 2;
         }
 
+        console.log(">>> LOAD PIECE");
         queueLoadPiece(speed);
       }
     }
@@ -629,23 +632,25 @@ function Board() {
       }
 
       case " ": {
-        cancelDelayMovePieceDown();
-        setPiece((prev) => {
+        if (piece.length > 0) {
+          cancelDelayMovePieceDown();
+
           // only can drop the active piece
-          if (prev.length > 0) {
-            const dropDistance = prev[0].row - grid[prev[0].col].length;
-            const dropScore = dropDistance * level.level;
-            setScore(prev => prev + dropScore);
+          if (piece.length > 0) {
+            const dropDistance = piece[0].row - grid[piece[0].col].length;
+            const dropScore = dropDistance * levelData.level;
+            updateScore(dropScore);
             setDropRow({
               distance: dropDistance,
-              startRow: prev[0].row,
-              col: prev[0].col
+              startRow: piece[0].row,
+              col: piece[0].col
             });
+
+            const movedPiece = piece.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
+            setPiece(movedPiece);
             setTransferPieceToGrid(true);
-            return prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
           }
-          return prev;
-        });
+        }
         break;
       }
 
@@ -680,7 +685,7 @@ function Board() {
       <div className="p-2">
         <div className="flex justify-center items-center w-[76px]">
           <div className="text-white text-xl font-semibold pb-1">
-            { level.level }
+            { levelData.level }
           </div>
         </div>
       </div>
@@ -788,7 +793,7 @@ function Board() {
               height: `${SETTINGS.UNIT}px`,
             }}
           >
-            +{level.level}
+            +{levelData.level}
           </div>
         </div>
       ));
@@ -913,7 +918,7 @@ function Board() {
           <div className="flex flex-col w-full items-start mt-8 gap-8">
             <Display title="NEXT" content={ renderNextPiece() } />
 
-            <JewelDisplay level={level} />
+            <JewelDisplay levelData={levelData} />
           </div>
         </div>
         <div className="basis-[480px] shrink px-8">
