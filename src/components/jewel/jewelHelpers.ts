@@ -29,7 +29,7 @@ export function getJewelColor(jewelType: EJewelType, jewelState: EJewelState) {
   }
 }
 
-export function isRareJewel(type: EJewelType): boolean {
+export function isJewelRare(type: EJewelType): boolean {
   return [EJewelType.RARE_1, EJewelType.RARE_2, EJewelType.LUXE_1].includes(type);
 }
 
@@ -40,11 +40,11 @@ export function getJewelValue(type: EJewelType): number {
     case EJewelType.COMMON_3:
     case EJewelType.COMMON_4:
     case EJewelType.COMMON_5:
-      return 50 * (DEBUG.LEVELS ? 10 : 1);
+      return 75 * (DEBUG.LEVELS ? 10 : 1);
     case EJewelType.VALUE_1:
     case EJewelType.VALUE_2:
     case EJewelType.VALUE_3:
-      return 100 * (DEBUG.LEVELS ? 10 : 1);
+      return 150 * (DEBUG.LEVELS ? 10 : 1);
     case EJewelType.RARE_1:
     case EJewelType.RARE_2:
       return 300 * (DEBUG.LEVELS ? 10 : 1);
@@ -53,4 +53,66 @@ export function getJewelValue(type: EJewelType): number {
     case EJewelType.JEWELBOX:
       return 0;
   }
+}
+
+export function getJewelFrequency(level: number): Record<EJewelType, number> {
+  const jewelFrequency: Record<EJewelType, number> = {
+    [EJewelType.COMMON_1]: 400,
+    [EJewelType.COMMON_2]: 400,
+    [EJewelType.COMMON_3]: 400,
+    [EJewelType.COMMON_4]: 0,
+    [EJewelType.COMMON_5]: level > 3 ? 400 : 0,
+    [EJewelType.VALUE_1]: 300,
+    [EJewelType.VALUE_2]: level > 1 ? 300 : 0,
+    [EJewelType.VALUE_3]: level > 5 ? 300 : 0,
+    [EJewelType.RARE_1]: 0, // ~5% + 0.5% per level 
+    [EJewelType.RARE_2]: 0, // ~5% + 0.5% per level
+    [EJewelType.LUXE_1]: 0, // ~5% (starting at level 10) + 1% per level after
+    [EJewelType.JEWELBOX]: 0, // 1%
+  };
+
+  let totalFrequency = Object.values(jewelFrequency).reduce((total, freq) => total + freq);
+  const jewelRareFrequency = 0.05 + level * 0.005;
+  jewelFrequency[EJewelType.RARE_1] = Math.floor(totalFrequency * jewelRareFrequency);
+  jewelFrequency[EJewelType.RARE_2] = level > 7
+    ? Math.floor(totalFrequency * jewelRareFrequency)
+    : 0;
+
+  totalFrequency = Object.values(jewelFrequency).reduce((total, freq) => total + freq);
+  const jewelLuxeFrequency = 0.05 + (level > 9 ? (level - 10) * 0.01 : 0);
+  jewelFrequency[EJewelType.LUXE_1] = level > 9
+    ? Math.floor(totalFrequency * jewelLuxeFrequency)
+    : 0;
+
+  totalFrequency = Object.values(jewelFrequency).reduce((total, freq) => total + freq);
+  const jewelBoxFrequency = 0.01;
+  jewelFrequency[EJewelType.JEWELBOX] = Math.floor(totalFrequency * jewelBoxFrequency);
+
+  if (DEBUG.COLORS) {
+    Object.values(EJewelType).forEach((type) => {
+      jewelFrequency[type as EJewelType] = 1;
+    });
+  }
+
+  return jewelFrequency;
+}
+
+let debugColorsIndex = 0;
+
+export function getRandomJewelType(jewelFrequency: Record<EJewelType, number>): EJewelType {
+  if (DEBUG.COLORS) {
+    const jewel = debugColorsIndex % (Object.values(EJewelType).length / 2);
+    debugColorsIndex++;
+    return jewel;
+  }
+
+  const choices: string[] = [];
+  Object.entries(jewelFrequency).forEach(([type, freq]: [string, number]) => {
+    for (let i = 0; i < freq; i++) {
+      choices.push(type);
+    }
+  });
+
+  const rand = Math.floor(Math.random() * choices.length);
+  return Number(choices[rand]);
 }

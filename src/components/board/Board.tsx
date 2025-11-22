@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
@@ -23,7 +23,7 @@ import {
   EGameState,
 } from "../../types/constants";
 import { generateEmptyBoard, generateNewPiece, getLevelData } from "./boardHelpers";
-import { getJewelValue, isRareJewel } from "../Jewel/jewelHelpers";
+import { getJewelValue, isJewelRare } from "../Jewel/jewelHelpers";
 import Box from "../Box/Box";
 import JewelDisplay from "../JewelDisplay/JewelDisplay";
 import type { BoxData } from "../../types/boxData";
@@ -221,16 +221,19 @@ function Board() {
 
   useEffect(() => {
     const level = getLevelData(score);
+    console.log(">>> SCORE -->  UPDATE LEVEL:", level);
+    
     setLevel(level);
-  }, [Math.floor(score / 10000)]);
 
+    if (level.level !== STARTING_LEVEL.level) {
+      sfxNewLevelRef.current!.play(); 
 
-  useEffect(() => {
-    if (level.level > 0) {
-      sfxNewLevelRef.current!.play();
+      // NOTE: we have to update forceJewelBos here instead of from another useEffect based on level changing,
+      // because of setTimeout() closure issues
+      // (drop scoring is followed by transfer to grid which eventually calls loadPiece, which uses forceJewelBox)
       setForceJewelBox(true); // jewelbox on new level
     }
-  }, [level]);
+  }, [Math.floor(score / 10000)]);
 
 
   //
@@ -273,6 +276,7 @@ function Board() {
       queueMovePieceDown(false); // with delay
 
       const newNextPiece = generateNewPiece(boxId, level, forceJewelBox);
+
       setForceJewelBox(false);
 
       if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
@@ -342,6 +346,7 @@ function Board() {
       piece.forEach((box) => grid[box.col].push(box));
 
       setPiece([]);
+
       queueUpdateGrid(true);
     }
   }, [transferPieceToGrid]);
@@ -486,7 +491,7 @@ function Board() {
           if (box.jewel.state !== EJewelState.MATCHED) {
             box.jewel.state = EJewelState.MATCHED;
             matchScore += getJewelValue(box.jewel.type) * (matchChain.length + 1);
-            if (isRareJewel(box.jewel.type)) {
+            if (isJewelRare(box.jewel.type)) {
               matchedRare = true;
             }
           }
@@ -629,14 +634,13 @@ function Board() {
           // only can drop the active piece
           if (prev.length > 0) {
             const dropDistance = prev[0].row - grid[prev[0].col].length;
-            const newDropRow = {
+            const dropScore = dropDistance * level.level;
+            setScore(prev => prev + dropScore);
+            setDropRow({
               distance: dropDistance,
-              startRow: prev[2].row,
-              col: prev[2].col
-            }
-
-            setDropRow(newDropRow);
-            setScore(score + dropDistance * level.level);
+              startRow: prev[0].row,
+              col: prev[0].col
+            });
             setTransferPieceToGrid(true);
             return prev.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
           }
@@ -778,7 +782,7 @@ function Board() {
           <div className="absolute border-shadow flex justify-center items-center
             drop-score-animation text-gray-900 text-[16px] font-bold" 
             style={{
-              top: `${(SETTINGS.ROWS - dropRow.startRow + i - 1) * SETTINGS.UNIT}px`,
+              top: `${(SETTINGS.ROWS - SETTINGS.PIECE_SIZE - dropRow.startRow + i) * SETTINGS.UNIT}px`,
               left: `${dropRow.col * SETTINGS.UNIT}px`,
               width: `${SETTINGS.UNIT}px`,
               height: `${SETTINGS.UNIT}px`,

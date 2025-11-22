@@ -1,6 +1,7 @@
 import type { LevelData } from "../../types/levelData";
 import Jewel from "../Jewel/Jewel";
 import { EJewelState, EJewelType } from "../../types/constants";
+import { getJewelValue } from "../Jewel/jewelHelpers";
 
 function JewelDisplay({
   level
@@ -16,7 +17,7 @@ function JewelDisplay({
           <div className="text-lg font-semibold text-amber-400">LUXE</div>
           <div className="relative flex gap-2 items-center">
             <Jewel jewel={{ type: EJewelType.LUXE_1, state: EJewelState.CLEAN }} />
-            <div className="text-sm font-semibold text-white">= 600</div>
+            <div className="text-sm font-semibold text-white"> = {getJewelValue(EJewelType.LUXE_1)}</div>
           </div>
         </div>
       }
@@ -30,7 +31,7 @@ function JewelDisplay({
             &&
             <Jewel jewel={{ type: EJewelType.RARE_2, state: EJewelState.CLEAN }} />
           }
-          <div className="text-sm font-semibold text-white">= 300</div>
+          <div className="text-sm font-semibold text-white"> = {getJewelValue(EJewelType.RARE_1)}</div>
         </div>
       </div>
 
@@ -48,7 +49,7 @@ function JewelDisplay({
             &&
             <Jewel jewel={{ type: EJewelType.VALUE_3, state: EJewelState.CLEAN }} />
           }
-          <div className="text-sm font-semibold text-white">= 100</div>
+          <div className="text-sm font-semibold text-white"> = {getJewelValue(EJewelType.VALUE_1)}</div>
         </div>
       </div>
 
@@ -68,7 +69,7 @@ function JewelDisplay({
             &&
             <Jewel jewel={{ type: EJewelType.COMMON_5, state: EJewelState.CLEAN }} />
           }
-          <div className="text-sm font-semibold text-white"> = 50</div>
+          <div className="text-sm font-semibold text-white"> = {getJewelValue(EJewelType.COMMON_1)}</div>
         </div>
       </div>
     </div>
