@@ -2,6 +2,7 @@ import { DEBUG, SETTINGS, EJewelState, EJewelType } from "../../types/constants"
 import type { LevelData } from "../../types/levelData";
 import type { BoxData } from "../../types/boxData";
 import { getJewelFrequency, getRandomJewelType } from "../Jewel/jewelHelpers";
+import { deepCopyBox } from "../Box/boxHelpers";
 
 export const START_COL = Math.floor(SETTINGS.COLS / 2);
 export const START_ROW = SETTINGS.ROWS - SETTINGS.PIECE_SIZE;
@@ -33,6 +34,10 @@ export function generateNewPiece(startId: React.RefObject<number>, level: LevelD
 
 export function generateEmptyBoard(): BoxData[][] {
   return Array.from({ length: SETTINGS.COLS }, () => []);
+}
+
+export function deepCopyGrid(grid: BoxData[][]): BoxData[][] {
+  return grid.map((colBoxes) => colBoxes.map((box) => deepCopyBox(box)));
 }
 
 export function getLevel(score: number): number {

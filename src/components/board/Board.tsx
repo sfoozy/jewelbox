@@ -1,5 +1,5 @@
 
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
@@ -22,7 +22,7 @@ import {
   EJewelType,
   EGameState,
 } from "../../types/constants";
-import { generateEmptyBoard, generateNewPiece, getLevel, getLevelData } from "./boardHelpers";
+import { deepCopyGrid, generateEmptyBoard, generateNewPiece, getLevel, getLevelData } from "./boardHelpers";
 import { getJewelValue, isJewelRare } from "../Jewel/jewelHelpers";
 import Box from "../Box/Box";
 import JewelDisplay from "../JewelDisplay/JewelDisplay";
@@ -32,6 +32,7 @@ import type { DropRowData } from "../../types/dropRowData";
 import Display from "../Display/Display";
 import Jewel from "../Jewel/Jewel";
 import GameInformation from "../GameInformation/GameInformation";
+import { deepCopyBox } from "../Box/boxHelpers";
 
 const STARTING_LEVEL_DATA = getLevelData(0);
 
@@ -59,11 +60,11 @@ function Board() {
   const [score, setScore] = useState(0);
   const [piece, setPiece] = useState<BoxData[]>([]);
   const [nextPiece, setNextPiece] = useState<BoxData[]>([]);
-  const [transferPieceToGrid, setTransferPieceToGrid] = useState(false);
   const [grid, setGrid] = useState<BoxData[][]>([]);
+  const [evaluateGrid, setEvaluateGrid] = useState(false);
   const [matchChain, setMatchChain] = useState<number[]>([]);
   const [dropRow, setDropRow] = useState<DropRowData>({ distance: 0, col: -1, startRow: -1 });
-  const [forceJewelBox, setForceJewelBox] = useState(false);
+  const [forceJewelBoxCount, setForceJewelBoxCount] = useState(0);
 
   const boxId = useRef(0);
 
@@ -91,6 +92,8 @@ function Board() {
     sfxJewelboxAlertRef.current = new Audio(jewelboxAlert);
     sfxNewLifeRef.current = new Audio(newLifeSound);
     sfxNewLevelRef.current = new Audio(newLevelSound);
+
+    return () => stopTimers();
   }, []);
 
 
@@ -116,11 +119,11 @@ function Board() {
     else if (gameState === EGameState.STARTED) {
       // continue by movie piece if we have one
       if (piece.length > 0) {
-        movePieceDown();
+        queueMovePieceDown(1, true, false);
       }
       // else, continue by re-evaluating the board
       else {
-        evaluateGrid();
+        performEvaluateGrid();
       }
 
       if (musicRef.current) {
@@ -160,6 +163,7 @@ function Board() {
     setGrid(generateEmptyBoard());
     setPiece([]);
     setNextPiece([]);
+    setForceJewelBoxCount(0);
 
     setLives(SETTINGS.STARTING_LIVES);
     setLevelData(STARTING_LEVEL_DATA);
@@ -222,16 +226,12 @@ function Board() {
   function updateScore(addScore: number) {
     setScore((prev) => {
       const newScore = prev + addScore;
-      console.log(`+++ SCORE: +${addScore} = ${newScore}`);
       const newLevel = getLevel(newScore);
       if (newLevel > levelData.level) {
         setLevelData(getLevelData(newLevel));
         sfxNewLevelRef.current!.play();
 
-        // NOTE: we have to update forceJewelBox here instead of from another useEffect based on level changing,
-        // because of setTimeout() closure issues
-        // (drop scoring is followed by transfer to grid which eventually calls loadPiece, which uses forceJewelBox)
-        setForceJewelBox(true); // jewelbox on new level
+        setForceJewelBoxCount((prev) => prev + (newLevel - levelData.level)); // jewelbox on new level
       }
 
       return newScore;
@@ -255,39 +255,39 @@ function Board() {
       },
       delayTime
     );
-  };
 
-  function loadPiece() {
-    if (gameState !== EGameState.STARTED) {
-      return;
-    }
-
-    // check if the active piece column can fit new piece
-    if (nextPiece.length > 0 && grid[nextPiece[0].col].length > nextPiece[0].row) {
-      queueRemoveLife();
-    }
-    else {
-      setMatchChain([]);
-      setDropRow({ distance: 0, col: -1, startRow: -1 });
-
-      const newPiece = nextPiece.length > 0
-        ? nextPiece
-        : generateNewPiece(boxId, levelData, false);
-
-      setPiece(newPiece);
-      queueMovePieceDown(false); // with delay
-
-      const newNextPiece = generateNewPiece(boxId, levelData, forceJewelBox);
-
-      setForceJewelBox(false);
-
-      if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
-        sfxJewelboxAlertRef.current!.play();
+    function loadPiece() {
+      if (gameState !== EGameState.STARTED) {
+        return;
       }
 
-      setNextPiece(newNextPiece);
+      // check if the active piece column can fit new piece
+      if (nextPiece.length > 0 && grid[nextPiece[0].col].length > nextPiece[0].row) {
+        queueRemoveLife();
+      }
+      else {
+        setMatchChain([]);
+        setDropRow({ distance: 0, col: -1, startRow: -1 });
+
+        const newPiece = nextPiece.length > 0
+          ? nextPiece
+          : generateNewPiece(boxId, levelData, false);
+
+        setPiece(newPiece);
+        queueMovePieceDown(1, false, false);
+
+        const newNextPiece = generateNewPiece(boxId, levelData, forceJewelBoxCount > 0);
+
+        setForceJewelBoxCount((prev) => Math.max(prev - 1, 0));
+
+        if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
+          sfxJewelboxAlertRef.current!.play();
+        }
+
+        setNextPiece(newNextPiece);
+      }
     }
-  }
+  };
 
 
   //
@@ -301,75 +301,70 @@ function Board() {
     }
   }
 
-  function queueMovePieceDown(immediate: boolean) {
+  function queueMovePieceDown(rows: number, immediate: boolean, lock: boolean) {
     cancelDelayMovePieceDown();
 
     if (immediate) {
-      movePieceDown();
+      movePieceDown(rows, immediate && lock);
     } else {
       delayMovePieceDownTimerRef.current = setTimeout(
         () => {
-          movePieceDown();
+          movePieceDown(rows, false);
           delayMovePieceDownTimerRef.current = 0;
         },
         levelData.speed
       );
     }
+
+    function movePieceDown(rows: number, immediate: boolean) {
+      setPiece((prev) => {
+        if (prev.length === 0) {
+          return prev;
+        }
+
+        const newPiece = prev.map((box) => ({ ...deepCopyBox(box), row: box.row - rows }));
+        const transferPiece = prev[0].row === grid[prev[0].col].length
+          ? prev
+          : immediate && newPiece[0].row === grid[newPiece[0].col].length
+            ? newPiece
+            : null;
+
+        if (transferPiece) {
+          // transfer piece to grid
+          const newGrid = deepCopyGrid(grid);
+          transferPiece.forEach((box) => newGrid[box.col].push(box));
+          queueUpdateGrid(newGrid, true);
+          return [];
+        }
+        else if (newPiece[0].row < grid[newPiece[0].col].length) {
+          console.error(">>> ERROR: piece overlapping grid!", prev, grid);
+        }
+
+        queueMovePieceDown(1, false, false);
+        return newPiece;
+      });
+    };
   }
-
-  function movePieceDown() {
-    setPiece((prev) => {
-      if (prev.length === 0) {
-        return prev;
-      }
-      else if (prev[0].row === grid[prev[0].col].length) {
-        setTransferPieceToGrid(true);
-        return prev;
-      }
-      else if (prev[0].row < grid[prev[0].col].length) {
-        console.error(">>> ERROR: piece overlapping grid!", prev, grid);
-      }
-
-      queueMovePieceDown(false); // with delay
-      return prev.map((box) => ({ ...box, row: box.row - 1 }));
-    });
-  };
-
-
-  //
-  // transfer piece to grid
-  //
-
-  useEffect(() => {
-    if (transferPieceToGrid) {
-      setTransferPieceToGrid(false);
-      cancelDelayMovePieceDown();
-
-      piece.forEach((box) => grid[box.col].push(box));
-
-      setPiece([]);
-
-      queueUpdateGrid(true);
-    }
-  }, [transferPieceToGrid]);
 
 
   //
   // update & evaluate grid
   //
 
-  function queueUpdateGrid(immediate: boolean) {
+  function queueUpdateGrid(newGrid: BoxData[][], immediate: boolean) {
     if (delayUpdateGridTimerRef.current) {
       clearTimeout(delayUpdateGridTimerRef.current);
       delayUpdateGridTimerRef.current = 0;
     }
 
     if (immediate) {
-      setGrid([...grid]);
+      setGrid(newGrid);
+      setEvaluateGrid(true);
     } else {
       delayUpdateGridTimerRef.current = setTimeout(
         () => {
-          setGrid([...grid]);
+          setGrid(newGrid);
+          setEvaluateGrid(true);
           delayUpdateGridTimerRef.current = 0;
         },
         SETTINGS.MATCH_DELAY
@@ -378,10 +373,13 @@ function Board() {
   }
 
   useEffect(() => {
-    evaluateGrid();
-  }, [grid])
+    if (evaluateGrid) {
+      setEvaluateGrid(false);
+      performEvaluateGrid();
+    }
+  }, [evaluateGrid])
 
-  function evaluateGrid() {
+  function performEvaluateGrid() {
     let updateGrid = false;
 
     // remove MATCHED boxes
@@ -521,7 +519,7 @@ function Board() {
     }
 
     if (updateGrid) {
-      queueUpdateGrid(false); // with delay
+      queueUpdateGrid([...grid], false);
     }
     else {
       // check if any column is above capacity
@@ -534,7 +532,6 @@ function Board() {
           speed = speed / 2;
         }
 
-        console.log(">>> LOAD PIECE");
         queueLoadPiece(speed);
       }
     }
@@ -583,7 +580,7 @@ function Board() {
               && prev[0].col < SETTINGS.COLS - 1
               && prev[0].row >= grid[prev[0].col + 1].length)
             {
-              return prev.map((box) => ({ ...box, col: box.col + 1 }));
+              return prev.map((box) => ({ ...deepCopyBox(box), col: box.col + 1 }));
             }
             return prev;
           });
@@ -600,7 +597,7 @@ function Board() {
               && prev[0].col > 0
               && prev[0].row >= grid[prev[0].col - 1].length)
             {
-              return prev.map((box) => ({ ...box, col: box.col - 1 }));
+              return prev.map((box) => ({ ...deepCopyBox(box), col: box.col - 1 }));
             }
             return prev;
           });
@@ -627,29 +624,23 @@ function Board() {
       }
       
       case "ArrowDown": {
-        queueMovePieceDown(true);
+        queueMovePieceDown(1, true, false);
         break;
       }
 
       case " ": {
+        // only can drop the active piece
         if (piece.length > 0) {
-          cancelDelayMovePieceDown();
+          const dropDistance = piece[0].row - grid[piece[0].col].length;
+          const dropScore = dropDistance * levelData.level;
+          updateScore(dropScore);
+          setDropRow({
+            distance: dropDistance,
+            startRow: piece[0].row,
+            col: piece[0].col
+          });
 
-          // only can drop the active piece
-          if (piece.length > 0) {
-            const dropDistance = piece[0].row - grid[piece[0].col].length;
-            const dropScore = dropDistance * levelData.level;
-            updateScore(dropScore);
-            setDropRow({
-              distance: dropDistance,
-              startRow: piece[0].row,
-              col: piece[0].col
-            });
-
-            const movedPiece = piece.map((box, i) => ({ ...box, row: grid[box.col].length + i }));
-            setPiece(movedPiece);
-            setTransferPieceToGrid(true);
-          }
+          queueMovePieceDown(dropDistance, true, true);
         }
         break;
       }
