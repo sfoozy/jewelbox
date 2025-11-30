@@ -333,7 +333,7 @@ function Board() {
           // transfer piece to grid
           const newGrid = deepCopyGrid(grid);
           transferPiece.forEach((box) => newGrid[box.col].push(box));
-          queueUpdateGrid(newGrid, true);
+          queueUpdateGrid(newGrid, 0);
           return [];
         }
         else if (newPiece[0].row < grid[newPiece[0].col].length) {
@@ -351,23 +351,24 @@ function Board() {
   // update & evaluate grid
   //
 
-  function queueUpdateGrid(newGrid: BoxData[][], immediate: boolean) {
+  function queueUpdateGrid(newGrid: BoxData[][], delayTime: number) {
     if (delayUpdateGridTimerRef.current) {
       clearTimeout(delayUpdateGridTimerRef.current);
       delayUpdateGridTimerRef.current = 0;
     }
 
-    if (immediate) {
+    if (delayTime === 0) {
       setGrid(newGrid);
       setEvaluateGrid(true);
-    } else {
+    }
+    else {
       delayUpdateGridTimerRef.current = setTimeout(
         () => {
           setGrid(newGrid);
           setEvaluateGrid(true);
           delayUpdateGridTimerRef.current = 0;
         },
-        SETTINGS.MATCH_DELAY
+        delayTime
       );
     }
   }
@@ -519,7 +520,7 @@ function Board() {
     }
 
     if (updateGrid) {
-      queueUpdateGrid([...grid], false);
+      queueUpdateGrid([...grid], SETTINGS.MATCH_DELAY);
     }
     else {
       // check if any column is above capacity
