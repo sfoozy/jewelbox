@@ -47,7 +47,7 @@ export function getLevel(score: number): number {
 export function getLevelData(level: number): LevelData {
   const levelData = {
     level: level,
-    speed: DEBUG.SPEED ? 300 : Math.max(800 - (level * 25), 300),
+    speed: DEBUG.SPEED ? 300 : Math.max(900 - (level * 25), 300),
     jewelFrequency: getJewelFrequency(level)
   };
 

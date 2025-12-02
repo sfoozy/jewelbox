@@ -67,7 +67,7 @@ export function getJewelFrequency(level: number): Record<EJewelType, number> {
     [EJewelType.VALUE_3]: level > 8 ? 300 : 0,
     [EJewelType.RARE_1]: 0, // ~5% + 0.25% per level 
     [EJewelType.RARE_2]: 0, // ~5% + 0.25% per level
-    [EJewelType.LUXE_1]: 0, // ~5% (starting at level 15) + 0.5% per level after
+    [EJewelType.LUXE_1]: 0, // ~5% (starting at level 20) + 0.5% per level after
     [EJewelType.JEWELBOX]: 0, // 1%
   };
 
@@ -79,7 +79,7 @@ export function getJewelFrequency(level: number): Record<EJewelType, number> {
     : 0;
 
   totalFrequency = Object.values(jewelFrequency).reduce((total, freq) => total + freq);
-  const jewelLuxeFrequency = 0.05 + (level > 14 ? (level - 15) * 0.005 : 0);
+  const jewelLuxeFrequency = 0.05 + (level > 14 ? (level - 14) * 0.005 : 0);
   jewelFrequency[EJewelType.LUXE_1] = level > 14
     ? Math.floor(totalFrequency * jewelLuxeFrequency)
     : 0;

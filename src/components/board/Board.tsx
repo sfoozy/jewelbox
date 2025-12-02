@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import "./Board.css";
 
 import jewelboxMusic from "../../resources/sounds/jewelbox.mp3";
@@ -64,7 +64,7 @@ function Board() {
   const [evaluateGrid, setEvaluateGrid] = useState(false);
   const [matchChain, setMatchChain] = useState<number[]>([]);
   const [dropRow, setDropRow] = useState<DropRowData>({ distance: 0, col: -1, startRow: -1 });
-  const [forceJewelBoxCount, setForceJewelBoxCount] = useState(0);
+  const forceJewelBoxCountRef = useRef(0);
 
   const boxId = useRef(0);
 
@@ -117,7 +117,7 @@ function Board() {
       setGameState(EGameState.STARTED);
     }
     else if (gameState === EGameState.STARTED) {
-      // continue by movie piece if we have one
+      // continue by moving active piece if we have one
       if (piece.length > 0) {
         queueMovePieceDown(1, true, false);
       }
@@ -163,7 +163,7 @@ function Board() {
     setGrid(generateEmptyBoard());
     setPiece([]);
     setNextPiece([]);
-    setForceJewelBoxCount(0);
+    forceJewelBoxCountRef.current = 0;
 
     setLives(SETTINGS.STARTING_LIVES);
     setLevelData(STARTING_LEVEL_DATA);
@@ -177,6 +177,11 @@ function Board() {
     setPiece([]);
 
     boxId.current = 0;
+
+    // reset ids for next piece
+    if (nextPiece.length > 0) {
+      setNextPiece(nextPiece.map((box) => ({ ...deepCopyBox(box), id: boxId.current++ })));
+    }
   }
 
   function setBoardFocus() {
@@ -198,6 +203,7 @@ function Board() {
 
     delayRemoveLifeTimerRef.current = setTimeout(
       () => {
+        initializeNewBoard();
         setLives(prev => prev - 1);
         delayRemoveLifeTimerRef.current = 0;
       },
@@ -212,7 +218,6 @@ function Board() {
       if (lives === 0) {
         setGameState(EGameState.ENDED);
       } else if (lives < SETTINGS.STARTING_LIVES) {
-        initializeNewBoard();
         queueLoadPiece(levelData.speed);
       }
     }
@@ -223,20 +228,16 @@ function Board() {
   // update score/level
   //
 
-  function updateScore(addScore: number) {
-    setScore((prev) => {
-      const newScore = prev + addScore;
-      const newLevel = getLevel(newScore);
-      if (newLevel > levelData.level) {
-        setLevelData(getLevelData(newLevel));
-        sfxNewLevelRef.current!.play();
+  useEffect(() => {
+    const newLevel = getLevel(score);
+    if (newLevel > levelData.level) {
+      setLevelData(getLevelData(newLevel));
+      sfxNewLevelRef.current!.play();
 
-        setForceJewelBoxCount((prev) => prev + (newLevel - levelData.level)); // jewelbox on new level
-      }
+      forceJewelBoxCountRef.current = Math.max(forceJewelBoxCountRef.current + (newLevel - levelData.level), 0); // jewelbox on new level
+    }
+  }, [score])
 
-      return newScore;
-    });
-  }
 
   //
   // load piece
@@ -261,8 +262,8 @@ function Board() {
         return;
       }
 
-      // check if the active piece column can fit new piece
-      if (nextPiece.length > 0 && grid[nextPiece[0].col].length > nextPiece[0].row) {
+      // check if the next piece column can fit in the active column
+      if (nextPiece.length > 0 && nextPiece.length + grid[nextPiece[0].col].length > SETTINGS.ROWS) {
         queueRemoveLife();
       }
       else {
@@ -276,9 +277,9 @@ function Board() {
         setPiece(newPiece);
         queueMovePieceDown(1, false, false);
 
-        const newNextPiece = generateNewPiece(boxId, levelData, forceJewelBoxCount > 0);
+        const newNextPiece = generateNewPiece(boxId, levelData, forceJewelBoxCountRef.current > 0);
 
-        setForceJewelBoxCount((prev) => Math.max(prev - 1, 0));
+        forceJewelBoxCountRef.current = Math.max(forceJewelBoxCountRef.current - 1, 0);
 
         if (newNextPiece.some((box) => box.jewel.type === EJewelType.JEWELBOX)) {
           sfxJewelboxAlertRef.current!.play();
@@ -498,8 +499,8 @@ function Board() {
           }
         });
 
+        setScore((prev) => prev + matchScore);
         setMatchChain([...matchChain, matchScore]);
-        updateScore(matchScore);
 
         if (matchedRare) {
           sfxMatchRareRef.current?.play();
@@ -523,18 +524,12 @@ function Board() {
       queueUpdateGrid([...grid], SETTINGS.MATCH_DELAY);
     }
     else {
-      // check if any column is above capacity
-      if (grid.some(colJewels => colJewels.length > SETTINGS.ROWS)) {
-        queueRemoveLife();
-      } 
-      else {
-        let speed = levelData.speed;
-        if (matchChain.length > 0) {
-          speed = speed / 2;
-        }
-
-        queueLoadPiece(speed);
+      let speed = levelData.speed;
+      if (matchChain.length > 0) {
+        speed = speed / 2;
       }
+
+      queueLoadPiece(speed);
     }
   };
 
@@ -634,7 +629,7 @@ function Board() {
         if (piece.length > 0) {
           const dropDistance = piece[0].row - grid[piece[0].col].length;
           const dropScore = dropDistance * levelData.level;
-          updateScore(dropScore);
+          setScore((prev) => prev + dropScore);
           setDropRow({
             distance: dropDistance,
             startRow: piece[0].row,
@@ -754,7 +749,7 @@ function Board() {
     );
   };
 
-  function renderGrid(): React.ReactElement[] {
+  function renderGrid(): React.ReactElement[] {    
     const pieceBoxes = piece.map((box) => {
       return <Box key={box.id} box={box} rowCount={SETTINGS.ROWS} />
     });
